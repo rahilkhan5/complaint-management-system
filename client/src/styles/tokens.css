@@ -1,0 +1,79 @@
+/* Design tokens: every color, size and timing the app uses lives here. */
+:root {
+  /* Surfaces */
+  --ground: oklch(97.6% 0.005 255);
+  --surface: oklch(99.6% 0.002 255);
+  --surface-2: oklch(95.4% 0.009 255);
+  --line: oklch(89.5% 0.012 258);
+  --line-strong: oklch(80% 0.018 258);
+
+  /* Text */
+  --ink: oklch(23% 0.05 262);
+  --ink-2: oklch(39% 0.035 262);
+  --ink-3: oklch(48% 0.03 262);
+
+  /* Pressboard blue: primary actions, selected items, file boards */
+  --board: oklch(38% 0.085 258);
+  --board-strong: oklch(31% 0.085 258);
+  --board-soft: oklch(93.5% 0.025 258);
+  --focus: oklch(56% 0.17 255);
+
+  /* Status stickers: fill, soft background, readable text */
+  --open: oklch(55% 0.15 255);
+  --open-soft: oklch(94.5% 0.03 255);
+  --open-ink: oklch(41% 0.13 255);
+
+  --progress: oklch(77% 0.15 75);
+  --progress-soft: oklch(95.5% 0.045 82);
+  --progress-ink: oklch(45% 0.1 62);
+
+  --resolved: oklch(58% 0.13 155);
+  --resolved-soft: oklch(95% 0.035 155);
+  --resolved-ink: oklch(40% 0.1 155);
+
+  --closed: oklch(64% 0.02 260);
+  --closed-soft: oklch(94.5% 0.006 260);
+  --closed-ink: oklch(42% 0.02 260);
+
+  --danger: oklch(50% 0.18 27);
+  --danger-soft: oklch(95.5% 0.03 27);
+
+  /* Type */
+  --font-ui: 'Atkinson Hyperlegible Next Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono Variable', ui-monospace, 'Cascadia Mono', monospace;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Shape and depth */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --shadow-rest: 0 1px 2px oklch(23% 0.05 262 / 0.05);
+  --shadow-lift: 0 2px 4px oklch(23% 0.05 262 / 0.06), 0 12px 28px -10px oklch(23% 0.05 262 / 0.22);
+
+  /* Layers */
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-toast: 40;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+
+  --header-height: 60px;
+}

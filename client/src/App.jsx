@@ -1,61 +1,39 @@
-import { useEffect, useState } from 'react'
-import { apiRequest } from './api/client.js'
+import { Navigate, Route, Routes } from 'react-router'
+import AppShell from './components/AppShell.jsx'
+import ProtectedRoute from './components/ProtectedRoute.jsx'
+import ComplaintDetailPage from './pages/ComplaintDetailPage.jsx'
+import ComplaintsPage from './pages/ComplaintsPage.jsx'
+import LoginPage from './pages/LoginPage.jsx'
+import NewComplaintPage from './pages/NewComplaintPage.jsx'
+import NotFoundPage from './pages/NotFoundPage.jsx'
+import RegisterPage from './pages/RegisterPage.jsx'
+import StaffPage from './pages/StaffPage.jsx'
 
-const STATUS_LABELS = {
-  loading: 'Checking server...',
-  online: 'Server online',
-  offline: 'Server offline',
-}
-
-function App() {
-  const [status, setStatus] = useState('loading')
-  const [health, setHealth] = useState(null)
-
-  useEffect(() => {
-    apiRequest('/health')
-      .then((data) => {
-        setHealth(data)
-        setStatus('online')
-      })
-      .catch(() => setStatus('offline'))
-  }, [])
-
+export default function App() {
   return (
-    <main className="page">
-      <section className="card">
-        <p className="eyebrow">MERN Stack Project</p>
-        <h1>Complaint Management System</h1>
-        <p className="lead">
-          Residents raise complaints, support agents resolve them, and admins
-          track everything in one place.
-        </p>
+    <Routes>
+      {/* Public pages */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
-        <div className={`status status--${status}`} role="status">
-          <span className="status__dot" aria-hidden="true" />
-          {STATUS_LABELS[status]}
-        </div>
+      {/* Everything below needs a logged in user and shares the header */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppShell />}>
+          <Route index element={<Navigate to="/complaints" replace />} />
+          <Route path="complaints" element={<ComplaintsPage />} />
+          <Route path="complaints/:id" element={<ComplaintDetailPage />} />
 
-        {health && (
-          <dl className="meta">
-            <div>
-              <dt>API</dt>
-              <dd>{health.status}</dd>
-            </div>
-            <div>
-              <dt>Database</dt>
-              <dd>{health.database}</dd>
-            </div>
-          </dl>
-        )}
+          <Route element={<ProtectedRoute roles={['resident']} />}>
+            <Route path="complaints/new" element={<NewComplaintPage />} />
+          </Route>
 
-        {status === 'offline' && (
-          <p className="hint">
-            Start the server with <code>npm run dev</code> from the project root.
-          </p>
-        )}
-      </section>
-    </main>
+          <Route element={<ProtectedRoute roles={['admin']} />}>
+            <Route path="staff" element={<StaffPage />} />
+          </Route>
+
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Route>
+    </Routes>
   )
 }
-
-export default App
