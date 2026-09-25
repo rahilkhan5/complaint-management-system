@@ -23,3 +23,9 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 *.swp
+
+# Local development database
+server/.data/
+
+# Design tool working files
+.impeccable/
