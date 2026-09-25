@@ -8,7 +8,7 @@ product
 
 Three kinds of people use this app, each in a different setting:
 
-- **Residents** of a housing community (inspired by Bahria Town Karachi). They open the app on their phone, often outdoors or at home, usually annoyed because something is broken: no water, a power fault, a blocked drain. They want to report it in under a minute and later check whether anyone is working on it.
+- **Residents** of a large housing community. They open the app on their phone, often outdoors or at home, usually annoyed because something is broken: no water, a power fault, a blocked drain. They want to report it in under a minute and later check whether anyone is working on it.
 - **Support agents** at the complaint center. They sit at an office desktop for a full shift, work through a queue of assigned complaints, update statuses, and leave notes for residents.
 - **Admins** (complaint center supervisors). On desktop, they watch the whole queue, assign complaints to agents, and manage staff accounts.
 

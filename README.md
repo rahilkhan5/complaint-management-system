@@ -2,7 +2,7 @@
 
 A full stack MERN web app for a housing society. Residents file complaints, support agents fix them, and admins assign the work and keep an eye on the numbers.
 
-I worked 3 years as a Customer Care Representative at the Bahria Town Karachi complaint center, handling resident complaints every day. This project is the system I wish we had: every complaint gets a case number, every step is written down, and nobody has to ask "what happened to my complaint?".
+I worked 3 years as a Customer Care Representative at a housing society complaint center, handling resident complaints every day. The question I heard most was "what happened to my complaint?". This project answers it: every complaint gets a case number, every step is written down, and residents can see the progress themselves.
 
 ![Admin view of all complaints](docs/screenshots/admin-complaints.png)
 
