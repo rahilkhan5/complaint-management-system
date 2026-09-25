@@ -682,6 +682,16 @@ fieldset.field legend {
   color: var(--ink-2);
 }
 
+.panel__hint {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+
+/* Messages above a complaint: just filed, just edited, or removed */
+.case__notice {
+  margin-bottom: var(--space-5);
+}
+
 /* The status message area stays in the page for screen readers but takes no space while empty */
 .live:empty {
   position: absolute;

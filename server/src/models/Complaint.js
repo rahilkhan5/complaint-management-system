@@ -6,6 +6,10 @@ const commentSchema = new mongoose.Schema(
   {
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true, trim: true, maxlength: 1000 },
+    // An admin can hide a rude comment. The text stays here for the record, but only admins get to see it.
+    removed: { type: Boolean, default: false },
+    removedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    removedAt: Date,
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 )
@@ -13,11 +17,13 @@ const commentSchema = new mongoose.Schema(
 // One entry for every important event, so the complaint keeps its full history
 const historySchema = new mongoose.Schema(
   {
-    type: { type: String, enum: ['created', 'status', 'assigned'], required: true },
+    type: { type: String, enum: ['created', 'status', 'assigned', 'edited', 'removed'], required: true },
     status: { type: String, enum: STATUSES },
     note: { type: String, trim: true, maxlength: 500 },
     by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // Which fields the resident changed, for "edited" entries
+    fields: { type: [String], default: undefined },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 )
@@ -37,6 +43,10 @@ const complaintSchema = new mongoose.Schema(
     history: [historySchema],
     resolvedAt: Date,
     closedAt: Date,
+    // Removed by an admin (rude or useless). Hidden from the resident and the agent, kept for the record.
+    // The reason is in the "removed" history entry.
+    removed: { type: Boolean, default: false },
+    removedAt: Date,
   },
   { timestamps: true },
 )

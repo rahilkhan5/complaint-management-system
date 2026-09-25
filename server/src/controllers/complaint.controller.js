@@ -6,11 +6,18 @@ import { httpError } from '../utils/httpError.js'
 
 const DAY = 24 * 60 * 60 * 1000
 
+// The fields a resident may change while the complaint is still open
+const EDITABLE_FIELDS = ['title', 'description', 'category', 'priority', 'location']
+
+// Complaints an admin removed stay in the database but drop out of every list and count.
+// $ne: true also matches older complaints that were saved before the field existed.
+const NOT_REMOVED = { removed: { $ne: true } }
+
 // Residents only see what they filed, agents only what is assigned to them, admins see everything
 function scopeFor(user) {
-  if (user.role === 'resident') return { createdBy: user._id }
-  if (user.role === 'agent') return { assignedTo: user._id }
-  return {}
+  if (user.role === 'resident') return { createdBy: user._id, ...NOT_REMOVED }
+  if (user.role === 'agent') return { assignedTo: user._id, ...NOT_REMOVED }
+  return { ...NOT_REMOVED }
 }
 
 // Compares two ids whether they are plain ObjectIds or populated documents
@@ -43,23 +50,73 @@ async function findComplaintOr404(id) {
   return complaint
 }
 
+// Loads a complaint the user may see
+async function findVisibleComplaint(user, id) {
+  const complaint = await findComplaintOr404(id)
+  // 404 instead of 403 so users cannot find out which complaint numbers exist
+  if (!canView(user, complaint)) throw httpError(404, 'Complaint not found')
+  // The resident and the agent already know this complaint exists, so they get a clear answer instead of 404
+  if (complaint.removed && user.role !== 'admin') throw httpError(410, 'This complaint was removed by the office')
+  return complaint
+}
+
+function assertNotRemoved(complaint) {
+  if (complaint.removed) throw httpError(400, 'This complaint was removed, so it cannot be changed')
+}
+
+// Same checks for filing and for editing a complaint
+function checkComplaintInput({ title, description, category, priority, location }) {
+  if (!title?.trim() || !description?.trim() || !category || !location?.trim()) {
+    throw httpError(400, 'Title, description, category and location are required')
+  }
+  if (!CATEGORIES.includes(category)) throw httpError(400, 'Please choose a valid category')
+  if (priority && !PRIORITIES.includes(priority)) throw httpError(400, 'Please choose a valid priority')
+}
+
+// Saves, and turns a Mongoose validation error (for example a title that is too long) into a 400 answer
+async function saveChecked(complaint) {
+  try {
+    await complaint.save()
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      throw httpError(400, Object.values(error.errors)[0].message)
+    }
+    throw error
+  }
+}
+
 async function populateFull(complaint) {
   return complaint.populate([
     { path: 'createdBy', select: 'name email phone address' },
     { path: 'assignedTo', select: 'name email phone' },
     { path: 'comments.author', select: 'name role' },
+    { path: 'comments.removedBy', select: 'name' },
     { path: 'history.by', select: 'name role' },
     { path: 'history.assignedTo', select: 'name' },
   ])
 }
 
+// The full complaint for the detail page. Only admins get the text of removed comments.
+async function toResponse(complaint, user) {
+  await populateFull(complaint)
+  const data = complaint.toJSON()
+  if (user.role !== 'admin') {
+    data.comments = data.comments.map((comment) =>
+      comment.removed ? { ...comment, text: undefined, removedBy: undefined } : comment,
+    )
+  }
+  return data
+}
+
 // GET /api/complaints
 export async function listComplaints(req, res) {
-  const { status, category, priority, q, unassigned } = req.query
+  const { status, category, priority, q, unassigned, removed } = req.query
   const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1)
   const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20))
 
   const filter = scopeFor(req.user)
+  // Only admins can open the list of removed complaints
+  if (removed === 'true' && req.user.role === 'admin') filter.removed = true
   if (status && STATUSES.includes(status)) filter.status = status
   if (category && CATEGORIES.includes(category)) filter.category = category
   if (priority && PRIORITIES.includes(priority)) filter.priority = priority
@@ -116,15 +173,17 @@ export async function getStats(req, res) {
   }
 
   if (req.user.role === 'admin') {
-    const [unassigned, byCategory] = await Promise.all([
-      Complaint.countDocuments({ assignedTo: null, status: { $in: ['open', 'in_progress'] } }),
+    const [unassigned, byCategory, removed] = await Promise.all([
+      Complaint.countDocuments({ ...NOT_REMOVED, assignedTo: null, status: { $in: ['open', 'in_progress'] } }),
       Complaint.aggregate([
-        { $match: { status: { $in: ['open', 'in_progress'] } } },
+        { $match: { ...NOT_REMOVED, status: { $in: ['open', 'in_progress'] } } },
         { $group: { _id: '$category', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
+      Complaint.countDocuments({ removed: true }),
     ])
     stats.unassigned = unassigned
+    stats.removed = removed
     stats.byCategory = byCategory.map((row) => ({ category: row._id, count: row.count }))
   }
 
@@ -134,12 +193,7 @@ export async function getStats(req, res) {
 // POST /api/complaints  (residents)
 export async function createComplaint(req, res) {
   const { title, description, category, priority, location } = req.body
-
-  if (!title?.trim() || !description?.trim() || !category || !location?.trim()) {
-    throw httpError(400, 'Title, description, category and location are required')
-  }
-  if (!CATEGORIES.includes(category)) throw httpError(400, 'Please choose a valid category')
-  if (priority && !PRIORITIES.includes(priority)) throw httpError(400, 'Please choose a valid priority')
+  checkComplaintInput(req.body)
 
   const complaint = new Complaint({
     title,
@@ -151,32 +205,64 @@ export async function createComplaint(req, res) {
     history: [{ type: 'created', status: 'open', by: req.user._id }],
   })
 
-  try {
-    await complaint.save()
-  } catch (error) {
-    if (error.name === 'ValidationError') {
-      throw httpError(400, Object.values(error.errors)[0].message)
-    }
-    throw error
-  }
-
-  res.status(201).json(await populateFull(complaint))
+  await saveChecked(complaint)
+  res.status(201).json(await toResponse(complaint, req.user))
 }
 
 // GET /api/complaints/:id
 export async function getComplaint(req, res) {
+  const complaint = await findVisibleComplaint(req.user, req.params.id)
+  res.json(await toResponse(complaint, req.user))
+}
+
+// PATCH /api/complaints/:id  (the resident who filed it, while it is still open)
+export async function updateComplaint(req, res) {
+  const input = req.body ?? {}
+  const complaint = await findVisibleComplaint(req.user, req.params.id)
+  if (!sameId(complaint.createdBy, req.user)) throw httpError(404, 'Complaint not found')
+  if (complaint.status !== 'open') {
+    throw httpError(400, 'Work on this complaint has started, so it can no longer be edited. Please add a comment instead.')
+  }
+  checkComplaintInput(input)
+
+  const changed = []
+  for (const field of EDITABLE_FIELDS) {
+    const value = typeof input[field] === 'string' ? input[field].trim() : input[field]
+    if (value !== undefined && value !== complaint[field]) {
+      complaint[field] = value
+      changed.push(field)
+    }
+  }
+
+  // Nothing changed, so there is nothing to save or write into the history
+  if (changed.length > 0) {
+    complaint.history.push({ type: 'edited', fields: changed, by: req.user._id })
+    await saveChecked(complaint)
+  }
+  res.json(await toResponse(complaint, req.user))
+}
+
+// PATCH /api/complaints/:id/remove  (admins)
+export async function removeComplaint(req, res) {
+  const reason = req.body?.reason?.trim()
   const complaint = await findComplaintOr404(req.params.id)
-  // 404 instead of 403 so users cannot find out which complaint numbers exist
-  if (!canView(req.user, complaint)) throw httpError(404, 'Complaint not found')
-  res.json(await populateFull(complaint))
+  if (complaint.removed) throw httpError(400, 'This complaint was already removed')
+  if (!reason) throw httpError(400, 'Please write why this complaint is being removed')
+
+  complaint.removed = true
+  complaint.removedAt = new Date()
+  complaint.history.push({ type: 'removed', note: reason, by: req.user._id })
+
+  await saveChecked(complaint)
+  res.json(await toResponse(complaint, req.user))
 }
 
 // PATCH /api/complaints/:id/status
 export async function updateStatus(req, res) {
   const { status, note } = req.body
-  const complaint = await findComplaintOr404(req.params.id)
+  const complaint = await findVisibleComplaint(req.user, req.params.id)
+  assertNotRemoved(complaint)
   const roles = actorRoles(req.user, complaint)
-  if (roles.length === 0) throw httpError(404, 'Complaint not found')
 
   const allowed = TRANSITIONS[complaint.status]?.[status]
   if (!allowed) {
@@ -204,13 +290,14 @@ export async function updateStatus(req, res) {
   complaint.history.push({ type: 'status', status, note: trimmedNote, by: req.user._id })
 
   await complaint.save()
-  res.json(await populateFull(complaint))
+  res.json(await toResponse(complaint, req.user))
 }
 
 // PATCH /api/complaints/:id/assign  (admins)
 export async function assignComplaint(req, res) {
   const { agentId } = req.body
   const complaint = await findComplaintOr404(req.params.id)
+  assertNotRemoved(complaint)
 
   if (complaint.status === 'closed' || complaint.status === 'resolved') {
     throw httpError(400, 'Only open or in progress complaints can be assigned')
@@ -224,14 +311,14 @@ export async function assignComplaint(req, res) {
   complaint.history.push({ type: 'assigned', assignedTo: agent._id, by: req.user._id })
 
   await complaint.save()
-  res.json(await populateFull(complaint))
+  res.json(await toResponse(complaint, req.user))
 }
 
 // POST /api/complaints/:id/comments
 export async function addComment(req, res) {
   const text = req.body.text?.trim()
-  const complaint = await findComplaintOr404(req.params.id)
-  if (!canView(req.user, complaint)) throw httpError(404, 'Complaint not found')
+  const complaint = await findVisibleComplaint(req.user, req.params.id)
+  assertNotRemoved(complaint)
 
   if (!text) throw httpError(400, 'Please write a comment first')
   if (text.length > 1000) throw httpError(400, 'Comments can be at most 1000 characters')
@@ -239,5 +326,21 @@ export async function addComment(req, res) {
 
   complaint.comments.push({ author: req.user._id, text })
   await complaint.save()
-  res.status(201).json(await populateFull(complaint))
+  res.status(201).json(await toResponse(complaint, req.user))
+}
+
+// PATCH /api/complaints/:id/comments/:commentId/remove  (admins)
+export async function removeComment(req, res) {
+  const complaint = await findComplaintOr404(req.params.id)
+  const comment = mongoose.isValidObjectId(req.params.commentId) ? complaint.comments.id(req.params.commentId) : null
+  if (!comment) throw httpError(404, 'Comment not found')
+  if (comment.removed) throw httpError(400, 'This comment was already removed')
+
+  // The text is kept for the record. toResponse() hides it from everyone except admins.
+  comment.removed = true
+  comment.removedBy = req.user._id
+  comment.removedAt = new Date()
+
+  await complaint.save()
+  res.json(await toResponse(complaint, req.user))
 }

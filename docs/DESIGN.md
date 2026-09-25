@@ -216,7 +216,7 @@ Each status has three tokens: a fill for the dot and tab edge, a soft background
 - **Archive Slate** (closed, closed-soft, closed-ink): the resident confirmed, or the file was closed.
 
 ### Alert
-- **Warning Red** (danger, danger-soft): error alerts, field error text, the invalid input border, danger buttons and the "High priority" tag. Nothing else is red.
+- **Warning Red** (danger, danger-soft): error alerts, field error text, the invalid input border, danger buttons, the "High priority" tag, and things an admin removed (the "Removed" index dot, the removed timeline icon, the original text of a removed comment and the remove confirm box). Nothing else is red.
 
 ### Neutral
 - **Cool Paper** (ground): the page background.
@@ -317,7 +317,8 @@ Solid, compact and clear. Every button is at least 44px tall.
 ### Status Sticker (signature)
 The sticker is how status reads at a glance.
 - **Structure:** a pill with the status soft color as background, the status ink as text (0.8125rem, 700), and a 9px round dot in the status fill with a soft halo. The word is always printed.
-- **How color is set:** any element with `data-status="open | in_progress | resolved | closed"` receives three local variables (status fill, soft and ink). The sticker, file tab edge, index dot and timeline icon all read those, so one attribute colors everything for that file.
+- **How color is set:** any element with `data-status="open | in_progress | resolved | closed"` receives three local variables (status fill, soft and ink). The sticker, file tab edge, index dot and timeline icon all read those, so one attribute colors everything for that file. `data-status="removed"` is not a status, but it sets the same three variables to Warning Red for the "Removed" index entry and the removed timeline icon.
+- **Tinted borders** mix a color into the hairline in oklab, not oklch. In oklch, red swings through purple on its way to the blue grey line.
 - **Large size:** 1rem text, 12px dot, 6px 16px padding. Used beside the case number on the detail page.
 - **Stamp moment:** the large sticker on the detail page plays a 420ms stamp animation (starts at 135% size and tilted, lands slightly small, then settles). It is keyed to the status, so it plays when the file opens and again every time the status changes.
 
@@ -360,6 +361,9 @@ The stamped history of a complaint.
 - A 1px firm line spine runs down the left. Each event has a 32px round icon. Status events take the status soft background, a tinted border and the status ink.
 - Each item shows one line of text with the actor in bold, a role chip (pill, grey sheet), and a faint caption time.
 - Notes sit in a grey sheet box; comments sit in a white box with a hairline border.
+- **Edited:** a pencil icon and "edited the title and location", listing the fields that changed.
+- **Removed comment:** a dashed icon and a dashed box with "This comment was removed by an admin." in italic. Admins also see who removed it and the original text in a pale red box.
+- **Admin tools:** a small ghost "Remove comment" button under each comment. It opens a pale red confirm box with Cancel and a danger Remove button, which gets focus.
 
 ### Alerts, Priority and Other Small Parts
 - **Alert:** small corners, 12px 16px padding, icon on the left. Error uses danger soft, success uses resolved soft, info uses pale pressboard, each with a 25 to 35% tinted border.

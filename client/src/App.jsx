@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx'
 import AccountPage from './pages/AccountPage.jsx'
 import ComplaintDetailPage from './pages/ComplaintDetailPage.jsx'
 import ComplaintsPage from './pages/ComplaintsPage.jsx'
+import EditComplaintPage from './pages/EditComplaintPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import NewComplaintPage from './pages/NewComplaintPage.jsx'
 import NotFoundPage from './pages/NotFoundPage.jsx'
@@ -27,6 +28,7 @@ export default function App() {
 
           <Route element={<ProtectedRoute roles={['resident']} />}>
             <Route path="complaints/new" element={<NewComplaintPage />} />
+            <Route path="complaints/:id/edit" element={<EditComplaintPage />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={['admin']} />}>

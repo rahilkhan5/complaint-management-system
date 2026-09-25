@@ -1,4 +1,4 @@
-import { ArrowLeft, FileQuestion, Send } from 'lucide-react'
+import { ArrowLeft, Ban, FileQuestion, Pencil, Send } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { complaintsApi, usersApi } from '../api/services.js'
@@ -14,6 +14,7 @@ import { usePageTitle } from '../hooks/usePageTitle.js'
 import { formatDateTime, timeAgo } from '../utils/format.js'
 
 const COMMENT_MAX = 1000
+const REASON_MAX = 500
 
 // Which "hats" the user wears for this complaint, same idea as the server's actorRoles()
 function rolesFor(user, complaint) {
@@ -32,6 +33,11 @@ function availableActions(user, complaint) {
     // Work can only start once an agent is assigned
     .filter(([to]) => !(complaint.status === 'open' && to === 'in_progress' && !complaint.assignedTo))
     .map(([to]) => ({ to, ...STATUS_ACTIONS[`${complaint.status}>${to}`] }))
+}
+
+// Who removed the complaint, when and why: the last "removed" entry in the history
+function removalOf(complaint) {
+  return complaint.removed ? complaint.history.findLast((entry) => entry.type === 'removed') : null
 }
 
 // What to tell the user when there is nothing for them to do
@@ -63,7 +69,8 @@ export default function ComplaintDetailPage() {
   const loadError = loaded.id === id ? loaded.error : null
   const setComplaint = (updated) => setLoaded({ id, complaint: updated, error: null })
   const [agents, setAgents] = useState([])
-  const [justFiled] = useState(Boolean(location.state?.justFiled))
+  // A one time message after filing or editing, passed along by the page that sent the user here
+  const [notice] = useState(location.state?.justFiled ? 'filed' : location.state?.justEdited ? 'edited' : null)
 
   // Status change form
   const [pending, setPending] = useState(null)
@@ -80,11 +87,18 @@ export default function ComplaintDetailPage() {
   const [commentError, setCommentError] = useState('')
   const [posting, setPosting] = useState(false)
 
+  // Remove form (admins)
+  const [removing, setRemoving] = useState(false)
+  const [reason, setReason] = useState('')
+  const [removeError, setRemoveError] = useState('')
+
   usePageTitle(complaint ? `${complaint.caseNumber} ${complaint.title}` : 'Complaint')
 
-  // Remove the "just filed" flag from browser history so a refresh does not show the message again
+  // Remove the one time flag from browser history so a refresh does not show the message again
   useEffect(() => {
-    if (location.state?.justFiled) navigate(location.pathname, { replace: true, state: null })
+    if (location.state?.justFiled || location.state?.justEdited) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
   }, [location, navigate])
 
   useEffect(() => {
@@ -110,6 +124,23 @@ export default function ComplaintDetailPage() {
       .then(setAgents)
       .catch(() => setAgents([]))
   }, [user.role])
+
+  if (loadError?.status === 410) {
+    return (
+      <EmptyState
+        icon={Ban}
+        title="This complaint was removed"
+        action={
+          <Link to="/complaints" className="btn btn--secondary">
+            <ArrowLeft size={16} aria-hidden="true" />
+            Back to complaints
+          </Link>
+        }
+      >
+        The office removed this complaint. If you think this is a mistake, please contact the office.
+      </EmptyState>
+    )
+  }
 
   if (loadError) {
     return (
@@ -143,8 +174,13 @@ export default function ComplaintDetailPage() {
     )
   }
 
-  const actions = availableActions(user, complaint)
-  const canAssign = user.role === 'admin' && ['open', 'in_progress'].includes(complaint.status)
+  const isAdmin = user.role === 'admin'
+  const isRemoved = Boolean(complaint.removed)
+  const removal = removalOf(complaint)
+  const actions = isRemoved ? [] : availableActions(user, complaint)
+  const canAssign = isAdmin && !isRemoved && ['open', 'in_progress'].includes(complaint.status)
+  // The resident can fix the details until work starts
+  const canEdit = complaint.createdBy?._id === user._id && complaint.status === 'open' && !isRemoved
   const isClosed = complaint.status === 'closed'
 
   async function changeStatus(action) {
@@ -200,6 +236,32 @@ export default function ComplaintDetailPage() {
     }
   }
 
+  async function removeComplaint() {
+    if (!reason.trim()) {
+      setRemoveError('Please write why you are removing it')
+      document.getElementById('remove-reason')?.focus()
+      return
+    }
+    setBusy(true)
+    setRemoveError('')
+    try {
+      const updated = await complaintsApi.remove(complaint._id, reason.trim())
+      setComplaint(updated)
+      setRemoving(false)
+      setReason('')
+    } catch (err) {
+      setRemoveError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Errors are shown next to the comment by the Timeline
+  async function removeComment(commentId) {
+    const updated = await complaintsApi.removeComment(complaint._id, commentId)
+    setComplaint(updated)
+  }
+
   async function postComment(event) {
     event.preventDefault()
     if (!comment.trim()) {
@@ -226,11 +288,24 @@ export default function ComplaintDetailPage() {
         All complaints
       </Link>
 
-      {justFiled && (
-        <div style={{ marginBottom: 24 }}>
+      {notice === 'filed' && (
+        <div className="case__notice">
           <Alert tone="success">
             Complaint filed. Your case number is <strong className="mono">{complaint.caseNumber}</strong>. Use it
             when you talk to the office.
+          </Alert>
+        </div>
+      )}
+      {notice === 'edited' && (
+        <div className="case__notice">
+          <Alert tone="success">Your changes are saved.</Alert>
+        </div>
+      )}
+      {removal && (
+        <div className="case__notice">
+          <Alert tone="info">
+            <strong>Removed by {removal.by?.name ?? 'an admin'}</strong> on {formatDateTime(removal.createdAt)}. The
+            resident and the agent can no longer see this complaint. Reason: {removal.note}
           </Alert>
         </div>
       )}
@@ -283,11 +358,11 @@ export default function ComplaintDetailPage() {
             <h2 id="history-title" className="section-title">
               History and comments
             </h2>
-            <Timeline complaint={complaint} />
+            <Timeline complaint={complaint} onRemoveComment={isAdmin && !isRemoved ? removeComment : undefined} />
 
-            {isClosed ? (
+            {isRemoved || isClosed ? (
               <p className="panel__text" style={{ marginTop: 24 }}>
-                This complaint is closed, so new comments are turned off.
+                This complaint is {isRemoved ? 'removed' : 'closed'}, so new comments are turned off.
               </p>
             ) : (
               <form className="comment-form" onSubmit={postComment} noValidate>
@@ -341,7 +416,21 @@ export default function ComplaintDetailPage() {
             </div>
             {actionError && <Alert tone="error">{actionError}</Alert>}
 
-            {actions.length === 0 && <p className="panel__text">{waitingText(user, complaint)}</p>}
+            {actions.length === 0 && (
+              <p className="panel__text">
+                {isRemoved ? 'This complaint was removed, so it cannot be changed.' : waitingText(user, complaint)}
+              </p>
+            )}
+
+            {canEdit && (
+              <div className="panel__actions">
+                <Link to={`/complaints/${complaint._id}/edit`} className="btn btn--secondary btn--block">
+                  <Pencil size={16} aria-hidden="true" />
+                  Edit complaint
+                </Link>
+                <p className="panel__hint">Missed something? You can change the details until work starts.</p>
+              </div>
+            )}
             {actions.length > 0 && complaint.status === 'resolved' && !pending && (
               <p className="panel__text">
                 {complaint.assignedTo?.name ?? 'The agent'} marked this as fixed. Please check and confirm, or reopen
@@ -457,6 +546,75 @@ export default function ComplaintDetailPage() {
               </li>
             </ul>
           </section>
+
+          {isAdmin && !isRemoved && (
+            <section className="panel" aria-labelledby="remove-title">
+              <h2 id="remove-title" className="panel__title">
+                Remove complaint
+              </h2>
+              {!removing ? (
+                <>
+                  <p className="panel__text">
+                    For rude or useless complaints. It disappears for the resident and the agent, and stays under
+                    Removed for your records.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn--danger btn--block"
+                    onClick={() => {
+                      setRemoving(true)
+                      setRemoveError('')
+                    }}
+                  >
+                    <Ban size={16} aria-hidden="true" />
+                    Remove complaint
+                  </button>
+                </>
+              ) : (
+                <div className="note-box">
+                  <label htmlFor="remove-reason" className="field__label">
+                    Why are you removing it?
+                  </label>
+                  <textarea
+                    id="remove-reason"
+                    className="input"
+                    maxLength={REASON_MAX}
+                    placeholder="For example: abusive language, or not a real complaint"
+                    value={reason}
+                    onChange={(event) => {
+                      setReason(event.target.value)
+                      if (removeError) setRemoveError('')
+                    }}
+                    aria-invalid={removeError ? 'true' : undefined}
+                    aria-describedby={removeError ? 'remove-error' : undefined}
+                    autoFocus
+                  />
+                  {removeError && (
+                    <p id="remove-error" className="field__error">
+                      {removeError}
+                    </p>
+                  )}
+                  <div className="note-box__buttons">
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setRemoving(false)
+                        setRemoveError('')
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button type="button" className="btn btn--danger" disabled={busy} onClick={removeComplaint}>
+                      {busy && <span className="spinner" aria-hidden="true" />}
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
         </aside>
       </div>
     </>

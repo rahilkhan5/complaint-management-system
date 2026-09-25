@@ -42,19 +42,24 @@ function IndexLink({ to, current, status, label, count }) {
 }
 
 // The drawer index: one entry per status with its count. A chip row on phones, a side list on desktop.
-export default function StatusIndex({ stats, isAdmin, activeStatus, unassignedActive, linkFor }) {
-  const noFilter = !activeStatus && !unassignedActive
+export default function StatusIndex({ stats, isAdmin, activeStatus, unassignedActive, removedActive, linkFor }) {
+  const noFilter = !activeStatus && !unassignedActive && !removedActive
   const maxCategory = Math.max(1, ...(stats?.byCategory ?? []).map((row) => row.count))
 
   return (
     <div className="index">
       <nav aria-label="Filter by status">
         <ul className="index__list">
-          <IndexLink to={linkFor({ status: null, unassigned: null })} current={noFilter} label="All" count={stats?.total} />
+          <IndexLink
+            to={linkFor({ status: null, unassigned: null, removed: null })}
+            current={noFilter}
+            label="All"
+            count={stats?.total}
+          />
           {STATUSES.map((status) => (
             <IndexLink
               key={status}
-              to={linkFor({ status, unassigned: null })}
+              to={linkFor({ status, unassigned: null, removed: null })}
               current={activeStatus === status}
               status={status}
               label={STATUS_LABELS[status]}
@@ -63,10 +68,19 @@ export default function StatusIndex({ stats, isAdmin, activeStatus, unassignedAc
           ))}
           {isAdmin && (
             <IndexLink
-              to={linkFor({ status: null, unassigned: 'true' })}
+              to={linkFor({ status: null, unassigned: 'true', removed: null })}
               current={unassignedActive}
               label="Needs an agent"
               count={stats?.unassigned}
+            />
+          )}
+          {isAdmin && (
+            <IndexLink
+              to={linkFor({ status: null, unassigned: null, removed: 'true' })}
+              current={removedActive}
+              status="removed"
+              label="Removed"
+              count={stats?.removed}
             />
           )}
         </ul>

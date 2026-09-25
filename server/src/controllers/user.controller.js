@@ -16,7 +16,7 @@ export async function listUsers(req, res) {
 
   // How many unfinished complaints each agent is holding right now
   const workload = await Complaint.aggregate([
-    { $match: { assignedTo: { $ne: null }, status: { $in: ['open', 'in_progress'] } } },
+    { $match: { assignedTo: { $ne: null }, status: { $in: ['open', 'in_progress'] }, removed: { $ne: true } } },
     { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
   ])
   const workloadById = Object.fromEntries(workload.map((row) => [row._id.toString(), row.count]))

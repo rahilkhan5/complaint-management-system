@@ -12,6 +12,7 @@ I worked 3 years as a Customer Care Representative at a housing society complain
 - Create an account and log in
 - File a complaint with a category, priority, location and description
 - Get a case number right away (CMS-0001, CMS-0002, ...)
+- Edit the complaint to fix or add details, until an agent starts work
 - Follow the status, read notes from the agent, and reply with comments
 - Confirm the fix and close the complaint, or reopen it if the problem is still there
 
@@ -25,6 +26,8 @@ I worked 3 years as a Customer Care Representative at a housing society complain
 - Assign or reassign agents, and see how many open complaints each agent holds
 - Weekly trends (new and resolved, compared with last week) and unfinished work by category
 - Add staff accounts and turn accounts off
+- Remove a rude comment: everyone else sees "This comment was removed by an admin", admins can still read it
+- Remove a rude or useless complaint with a reason: it disappears for the resident and the agent, and stays under "Removed" for the record
 
 **Everyone**
 - Search by title, case number or place, filter by status, category and priority
@@ -79,6 +82,7 @@ The same rules live in one table (`TRANSITIONS` in `server/src/constants.js`). T
 - **Roles:** every API route checks who is asking. Residents only ever get their own complaints and agents only the ones assigned to them. Asking for someone else's complaint returns 404, so nobody can guess which case numbers exist.
 - **Case numbers:** a small `counters` collection is increased with `$inc` for each new complaint, so two complaints filed at the same moment never get the same number.
 - **History:** every status change and assignment is saved with who did it and when. The detail page merges this history with the comments into one timeline.
+- **Removing, not deleting:** a removed complaint or comment is only hidden. The text, the reason and who removed it stay in the database, so there is always a record, and case numbers never disappear.
 - **Safety:** passwords are never sent back by the API, input is checked in the browser and again on the server, and unknown errors return a generic message.
 
 A longer, plain English walkthrough for interviews is in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md). The design system (colors, type, spacing and the rules behind the "case file" look) is written down in [docs/DESIGN.md](docs/DESIGN.md).
@@ -163,13 +167,16 @@ All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
 | GET | `/auth/me` | 🔒 any user | The logged in user |
 | PATCH | `/auth/me` | 🔒 any user | Update your own name, email, phone and address |
 | PATCH | `/auth/password` | 🔒 any user | Change your password (needs the current one) and log out other devices |
-| GET | `/complaints` | 🔒 any user | List complaints the user may see. Filters: `status`, `category`, `priority`, `q`, `unassigned`, `page`, `limit` |
+| GET | `/complaints` | 🔒 any user | List complaints the user may see. Filters: `status`, `category`, `priority`, `q`, `unassigned`, `removed` (admins), `page`, `limit` |
 | GET | `/complaints/stats` | 🔒 any user | Counts by status, weekly trends, and for admins the category breakdown |
 | POST | `/complaints` | 🔒 resident | File a complaint |
 | GET | `/complaints/:id` | 🔒 owner, assignee, admin | One complaint with history and comments |
+| PATCH | `/complaints/:id` | 🔒 resident who filed it | Edit the details while the complaint is still open |
 | PATCH | `/complaints/:id/status` | 🔒 depends on the status flow | Change the status, with a note when needed |
 | PATCH | `/complaints/:id/assign` | 🔒 admin | Assign or reassign an agent |
+| PATCH | `/complaints/:id/remove` | 🔒 admin | Remove a complaint, with a reason |
 | POST | `/complaints/:id/comments` | 🔒 owner, assignee, admin | Add a comment |
+| PATCH | `/complaints/:id/comments/:commentId/remove` | 🔒 admin | Remove a comment (the text is kept for admins) |
 | GET | `/users` | 🔒 admin | List users with each agent's open workload |
 | POST | `/users` | 🔒 admin | Create an agent or admin account |
 | PATCH | `/users/:id` | 🔒 admin | Turn an account on or off |
@@ -180,7 +187,7 @@ All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
 npm test
 ```
 
-26 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue, staff management, and updating your own account and password. Each test run uses its own in-memory MongoDB, so it never touches your data.
+34 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue, staff management, updating your own account and password, editing a complaint, and removing comments and complaints. Each test run uses its own in-memory MongoDB, so it never touches your data.
 
 ## Folder structure
 

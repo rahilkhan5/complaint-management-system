@@ -5,6 +5,7 @@ import StatusSticker from './StatusSticker.jsx'
 
 // The small line under the date changes with the role: each role cares about a different person
 function whoLine(complaint, role) {
+  if (complaint.removed) return 'Removed by the office'
   if (role === 'agent') return `Filed by ${complaint.createdBy?.name ?? 'a resident'}`
   if (complaint.assignedTo) return `Agent: ${complaint.assignedTo.name}`
   if (['resolved', 'closed'].includes(complaint.status)) return 'No agent'

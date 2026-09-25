@@ -56,6 +56,14 @@ All allowed moves are in one object, `TRANSITIONS`, in `server/src/constants.js`
 
 `updateStatus` looks up the move in this table, checks the user's hats, checks the note, then saves the new status and adds a history entry. Because the rules are data and not a pile of `if` statements, adding a new status later means changing one table.
 
+## Editing and removing
+
+- **A resident can edit a complaint while it is open.** `updateComplaint` checks that the user filed it and that the status is still `open`. Once an agent starts work, the details are locked and the resident adds a comment instead, so the agent never works from details that changed under them. Each edit adds an "edited" history entry that lists which fields changed.
+- **An admin can remove a rude comment.** The comment gets `removed: true`, but its text stays in the database. `toResponse()` builds every complaint the API sends back, and for anyone who is not an admin it blanks out the text of removed comments. So the resident and the agent see "This comment was removed by an admin", while admins can still read the original.
+- **An admin can remove a whole complaint, with a reason.** It is not deleted. It gets `removed: true` and a "removed" history entry with the reason. Every list and count adds `removed: { $ne: true }` to its filter, so it disappears for the resident and the agent. Admins find it under the "Removed" filter.
+- **Why `$ne: true` and not `removed: false`?** Complaints saved before this feature do not have the field at all. `removed: false` would skip them; `$ne: true` matches them.
+- **A removed complaint answers 410 Gone** to its resident and agent. They already know it exists, so there is nothing to hide, and a clear "removed by the office" is kinder than "not found". Everyone else still gets 404.
+
 ## The list page
 
 - Filters (status, category, priority, search, page) are stored in the URL with `useSearchParams`. Refreshing the page or sharing the link keeps the same view.
@@ -76,7 +84,7 @@ The side panel shows each weekly number next to last week's, like "7, 4 more tha
 
 ## Tests
 
-`server/test/` has 26 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
+`server/test/` has 34 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
 
 ## Questions I expect in an interview
 
@@ -91,6 +99,9 @@ The counter is increased with `$inc` in a single `findByIdAndUpdate`, which Mong
 
 **Why check the form in the browser and on the server?**
 The browser check is for a fast, friendly experience. The server check is the real protection, because anyone can call the API directly without the React app.
+
+**Why hide complaints and comments instead of deleting them?**
+A complaint system needs a record. If a resident writes something abusive and later says "I never wrote that", the admin can still show it. Deleting would also leave gaps in the case numbers with no explanation.
 
 **What would you improve?**
 Photo uploads, email or SMS notifications, rate limiting on login, and a live deployment.

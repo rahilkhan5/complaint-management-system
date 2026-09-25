@@ -44,6 +44,7 @@ export default function ComplaintsPage() {
   const priority = searchParams.get('priority') || ''
   const q = searchParams.get('q') || ''
   const unassigned = searchParams.get('unassigned') === 'true'
+  const removed = searchParams.get('removed') === 'true'
   const page = Number(searchParams.get('page')) || 1
 
   const [stats, setStats] = useState(null)
@@ -68,7 +69,7 @@ export default function ComplaintsPage() {
   useEffect(() => {
     let ignore = false
     complaintsApi
-      .list({ status, category, priority, q, page, unassigned: unassigned ? 'true' : '' })
+      .list({ status, category, priority, q, page, unassigned: unassigned ? 'true' : '', removed: removed ? 'true' : '' })
       .then((list) => {
         if (!ignore) setResult({ key: queryKey, data: list, error: '' })
       })
@@ -78,7 +79,7 @@ export default function ComplaintsPage() {
     return () => {
       ignore = true
     }
-  }, [queryKey, status, category, priority, q, page, unassigned])
+  }, [queryKey, status, category, priority, q, page, unassigned, removed])
 
   // Keep the search box in step with the URL (for example after pressing Back)
   const [lastQ, setLastQ] = useState(q)
@@ -124,7 +125,7 @@ export default function ComplaintsPage() {
     setSearchParams('')
   }
 
-  const hasFilters = Boolean(status || category || priority || q || unassigned)
+  const hasFilters = Boolean(status || category || priority || q || unassigned || removed)
   const isResident = user.role === 'resident'
 
   return (
@@ -149,6 +150,7 @@ export default function ComplaintsPage() {
             isAdmin={user.role === 'admin'}
             activeStatus={status}
             unassignedActive={unassigned}
+            removedActive={removed}
             linkFor={(changes) => ({ search: buildSearch(changes) })}
           />
         </aside>
@@ -236,7 +238,9 @@ export default function ComplaintsPage() {
           {!error && data && data.items.length === 0 && (
             <EmptyState
               icon={FolderOpen}
-              title={hasFilters ? 'No complaints match these filters' : 'No complaints yet'}
+              title={
+                removed ? 'No removed complaints' : hasFilters ? 'No complaints match these filters' : 'No complaints yet'
+              }
               action={
                 hasFilters ? (
                   <button type="button" className="btn btn--secondary" onClick={clearFilters}>
@@ -252,13 +256,15 @@ export default function ComplaintsPage() {
                 )
               }
             >
-              {hasFilters
-                ? 'Try a different status, category or search word.'
-                : user.role === 'agent'
-                  ? 'When the office assigns a complaint to you it will show up here.'
-                  : isResident
-                    ? 'When something needs fixing, file it here and you will get a case number to follow.'
-                    : 'Complaints filed by residents will show up here.'}
+              {removed
+                ? 'When an admin removes a complaint, it is kept here for the record.'
+                : hasFilters
+                  ? 'Try a different status, category or search word.'
+                  : user.role === 'agent'
+                    ? 'When the office assigns a complaint to you it will show up here.'
+                    : isResident
+                      ? 'When something needs fixing, file it here and you will get a case number to follow.'
+                      : 'Complaints filed by residents will show up here.'}
             </EmptyState>
           )}
 

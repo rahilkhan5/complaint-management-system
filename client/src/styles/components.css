@@ -21,6 +21,12 @@
   --status-soft: var(--closed-soft);
   --status-ink: var(--closed-ink);
 }
+/* Not a status, but it uses the same trio: complaints an admin removed */
+[data-status='removed'] {
+  --status: var(--danger);
+  --status-soft: var(--danger-soft);
+  --status-ink: var(--danger);
+}
 
 /* Logo */
 .logo {
@@ -98,7 +104,8 @@
 
 .btn--danger {
   background: var(--surface);
-  border-color: color-mix(in oklch, var(--danger) 45%, var(--line));
+  /* Borders are mixed in oklab: in oklch, red would swing through purple on its way to the blue gray line */
+  border-color: color-mix(in oklab, var(--danger) 45%, var(--line));
   color: var(--danger);
 }
 
@@ -358,7 +365,7 @@ textarea.input {
 
 .alert--error {
   background: var(--danger-soft);
-  border-color: color-mix(in oklch, var(--danger) 35%, var(--line));
+  border-color: color-mix(in oklab, var(--danger) 35%, var(--line));
 }
 
 .alert--error .alert__icon {
@@ -367,7 +374,7 @@ textarea.input {
 
 .alert--success {
   background: var(--resolved-soft);
-  border-color: color-mix(in oklch, var(--resolved) 35%, var(--line));
+  border-color: color-mix(in oklab, var(--resolved) 35%, var(--line));
 }
 
 .alert--success .alert__icon {
@@ -376,7 +383,7 @@ textarea.input {
 
 .alert--info {
   background: var(--board-soft);
-  border-color: color-mix(in oklch, var(--board) 25%, var(--line));
+  border-color: color-mix(in oklab, var(--board) 25%, var(--line));
 }
 
 .alert--info .alert__icon {
@@ -659,7 +666,7 @@ textarea.input {
 
 .timeline__item[data-status] .timeline__icon {
   background: var(--status-soft);
-  border-color: color-mix(in oklch, var(--status) 45%, var(--line));
+  border-color: color-mix(in oklab, var(--status) 45%, var(--line));
   color: var(--status-ink);
 }
 
@@ -698,6 +705,65 @@ textarea.input {
 .timeline__item--comment .timeline__note {
   background: var(--surface);
   border: 1px solid var(--line);
+}
+
+/* A comment an admin removed: a dashed outline, so it reads as "something was here" */
+.timeline__item--comment .timeline__note--removed {
+  display: grid;
+  gap: var(--space-2);
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-2);
+}
+
+.timeline__item--comment.is-removed .timeline__icon {
+  border-style: dashed;
+  color: var(--ink-3);
+}
+
+.timeline__removed-text {
+  font-style: italic;
+}
+
+.timeline__removed-meta {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+
+/* The original text, only sent to admins */
+.timeline__original {
+  padding: var(--space-2) var(--space-3);
+  background: var(--danger-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* Admin tools under a comment */
+.comment-tool {
+  justify-self: start;
+  color: var(--ink-3);
+}
+
+.comment-confirm {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: 4px;
+  padding: var(--space-3);
+  background: var(--danger-soft);
+  border-radius: var(--radius-sm);
+  animation: reveal var(--duration-base) var(--ease-out);
+}
+
+.comment-confirm__text {
+  font-size: var(--text-sm);
+}
+
+.comment-confirm__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .role-chip {
