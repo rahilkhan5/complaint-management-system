@@ -120,7 +120,10 @@ export default function LoginPage() {
         <ul className="stack">
           {SAMPLE_FILES.map((file) => (
             <li key={file.caseNumber} className="stack__file" data-status={file.status}>
-              <span className="file__tab">{file.caseNumber}</span>
+              <span className="file__tab">
+                <span className="file__tab-dot" />
+                {file.caseNumber}
+              </span>
               <div className="file__body">
                 <div className="file__main">
                   <span className="file__title">{file.title}</span>

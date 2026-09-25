@@ -7,6 +7,7 @@ import StatusSticker from './StatusSticker.jsx'
 function whoLine(complaint, role) {
   if (role === 'agent') return `Filed by ${complaint.createdBy?.name ?? 'a resident'}`
   if (complaint.assignedTo) return `Agent: ${complaint.assignedTo.name}`
+  if (['resolved', 'closed'].includes(complaint.status)) return 'No agent'
   return role === 'resident' ? 'Waiting for an agent' : 'Not assigned'
 }
 
@@ -23,7 +24,10 @@ export default function FileList({ complaints, role }) {
         {complaints.map((complaint) => (
           <li key={complaint._id} className="file" data-status={complaint.status}>
             <Link to={`/complaints/${complaint._id}`} className="file__link">
-              <span className="file__tab">{complaint.caseNumber}</span>
+              <span className="file__tab">
+                <span className="file__tab-dot" aria-hidden="true" />
+                {complaint.caseNumber}
+              </span>
               <div className="file__body">
                 <div className="file__main">
                   <h3 className="file__title">{complaint.title}</h3>

@@ -79,7 +79,7 @@ The same rules live in one table (`TRANSITIONS` in `server/src/constants.js`). T
 - **History:** every status change and assignment is saved with who did it and when. The detail page merges this history with the comments into one timeline.
 - **Safety:** passwords are never sent back by the API, input is checked in the browser and again on the server, and unknown errors return a generic message.
 
-A longer, plain English walkthrough for interviews is in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
+A longer, plain English walkthrough for interviews is in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md). The design system (colors, type, spacing and the rules behind the "case file" look) is written down in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Try it locally
 
@@ -176,7 +176,7 @@ All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
 npm test
 ```
 
-20 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search and staff management. Each test run uses its own in-memory MongoDB, so it never touches your data.
+21 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue and staff management. Each test run uses its own in-memory MongoDB, so it never touches your data.
 
 ## Folder structure
 
@@ -203,7 +203,7 @@ complaint-management-system/
 │   │   ├── constants.js       roles, categories and status rules
 │   │   └── app.js             Express setup
 │   └── test/                  API tests
-└── docs/                      product notes, walkthrough and screenshots
+└── docs/                      product notes, design system, walkthrough and screenshots
 ```
 
 ## What I would add next

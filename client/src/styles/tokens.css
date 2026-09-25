@@ -6,6 +6,8 @@
   --surface-2: oklch(95.4% 0.009 255);
   --line: oklch(89.5% 0.012 258);
   --line-strong: oklch(80% 0.018 258);
+  /* Borders of inputs and outline buttons: at least 3:1 against the surface (WCAG 1.4.11) */
+  --control-line: oklch(60% 0.02 258);
 
   /* Text */
   --ink: oklch(23% 0.05 262);

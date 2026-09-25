@@ -73,7 +73,7 @@ The side panel shows each weekly number next to last week's, like "7, 4 more tha
 
 ## Tests
 
-`server/test/` has 20 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
+`server/test/` has 21 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
 
 ## Questions I expect in an interview
 

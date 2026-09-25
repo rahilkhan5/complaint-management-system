@@ -63,7 +63,11 @@ export async function listComplaints(req, res) {
   if (status && STATUSES.includes(status)) filter.status = status
   if (category && CATEGORIES.includes(category)) filter.category = category
   if (priority && PRIORITIES.includes(priority)) filter.priority = priority
-  if (unassigned === 'true' && req.user.role === 'admin') filter.assignedTo = null
+  if (unassigned === 'true' && req.user.role === 'admin') {
+    filter.assignedTo = null
+    // Same meaning as the "unassigned" count in getStats: only work that is not finished
+    filter.status ??= { $in: ['open', 'in_progress'] }
+  }
   if (q?.trim()) {
     const pattern = new RegExp(escapeRegex(q.trim()), 'i')
     filter.$or = [{ title: pattern }, { caseNumber: pattern }, { location: pattern }]

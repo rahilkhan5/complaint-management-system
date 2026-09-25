@@ -187,6 +187,24 @@ describe('complaints', () => {
     const bySearch = await api().get('/api/complaints?q=light').set(auth(resident.token))
     assert.equal(bySearch.body.items[0].title, 'Street light broken')
   })
+
+  it('lists only unfinished complaints as needing an agent', async () => {
+    const resident = await createUser('resident')
+    const admin = await createUser('admin')
+    await fileComplaint(resident.token, { title: 'Still waiting for someone' })
+    const dropped = await fileComplaint(resident.token, { title: 'Closed without an agent' })
+    await api()
+      .patch(`/api/complaints/${dropped._id}/status`)
+      .set(auth(admin.token))
+      .send({ status: 'closed', note: 'Duplicate of another complaint' })
+
+    const res = await api().get('/api/complaints?unassigned=true').set(auth(admin.token))
+    assert.equal(res.body.total, 1)
+    assert.equal(res.body.items[0].title, 'Still waiting for someone')
+
+    const stats = await api().get('/api/complaints/stats').set(auth(admin.token))
+    assert.equal(stats.body.unassigned, res.body.total)
+  })
 })
 
 describe('staff management', () => {
