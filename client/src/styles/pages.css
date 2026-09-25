@@ -542,6 +542,12 @@ fieldset.field legend {
   gap: var(--space-5);
 }
 
+@media (max-width: 959px) {
+  .case__side {
+    order: -1;
+  }
+}
+
 @media (min-width: 960px) {
   .case {
     grid-template-columns: minmax(0, 1fr) 20rem;
@@ -606,7 +612,7 @@ fieldset.field legend {
 
 .meta {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   gap: var(--space-4) var(--space-5);
   margin: 0 0 var(--space-5);
 }
@@ -677,7 +683,7 @@ fieldset.field legend {
 
 /* The status message area stays in the page for screen readers but takes no space while empty */
 .live:empty {
-  margin-top: calc(var(--space-4) * -1);
+  position: absolute;
 }
 
 .assign-form {

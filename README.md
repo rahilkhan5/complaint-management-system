@@ -1,110 +1,216 @@
-# Complaint Management System
+# Complaint Desk
 
-A full stack MERN web app where residents of a housing community raise complaints, support agents resolve them, and admins track everything in one dashboard.
+A full stack MERN web app for a housing society. Residents file complaints, support agents fix them, and admins assign the work and keep an eye on the numbers.
 
-The idea comes from my 3 years as a Customer Care Representative at the Bahria Town Karachi complaint center, where I handled resident complaints every day.
+I worked 3 years as a Customer Care Representative at the Bahria Town Karachi complaint center, handling resident complaints every day. This project is the system I wish we had: every complaint gets a case number, every step is written down, and nobody has to ask "what happened to my complaint?".
 
-> Status: 🚧 In development. This repo currently has the project setup (React client + Express API). Features are being added step by step.
+![Admin view of all complaints](docs/screenshots/admin-complaints.png)
 
-## Planned Features
+## What it does
 
-- [ ] Sign up and login with JWT authentication
-- [ ] Three roles: **Resident**, **Support Agent**, **Admin**
-- [ ] Residents create complaints with category, description and photo
-- [ ] Complaint status flow: `Open` → `In Progress` → `Resolved` → `Closed`
-- [ ] Admin assigns complaints to agents
-- [ ] Agents update status and add comments
-- [ ] Dashboard with complaint counts per status and category
-- [ ] Search and filter complaints
-- [ ] Responsive UI for mobile and desktop
-- [ ] Deployed live (client on Vercel, API on Render, database on MongoDB Atlas)
+**Residents**
+- Create an account and log in
+- File a complaint with a category, priority, location and description
+- Get a case number right away (CMS-0001, CMS-0002, ...)
+- Follow the status, read notes from the agent, and reply with comments
+- Confirm the fix and close the complaint, or reopen it if the problem is still there
 
-## Tech Stack
+**Support agents**
+- See only the complaints assigned to them
+- Start work, then mark it resolved with a note about what was done
+- Talk to the resident through comments
+
+**Admins**
+- See every complaint, with a "Needs an agent" queue
+- Assign or reassign agents, and see how many open complaints each agent holds
+- Weekly trends (new and resolved, compared with last week) and unfinished work by category
+- Add staff accounts and turn accounts off
+
+**Everyone**
+- Search by title, case number or place, filter by status, category and priority
+- Filters live in the URL, so a filtered list can be bookmarked or shared
+- Works on phones and on desktop
+
+## Screenshots
+
+| Resident: my complaints | Resident: complaint detail |
+|---|---|
+| ![Resident complaint list](docs/screenshots/resident-complaints.png) | ![Complaint detail with timeline](docs/screenshots/complaint-detail.png) |
+
+| Agent: working on a complaint | Admin: staff management |
+|---|---|
+| ![Agent view of a complaint](docs/screenshots/agent-detail.png) | ![Staff page](docs/screenshots/admin-staff.png) |
+
+| Login with demo accounts | On a phone |
+|---|---|
+| ![Login page](docs/screenshots/login.png) | <img src="docs/screenshots/mobile-complaints.png" alt="Complaint list on a phone" width="260"> <img src="docs/screenshots/mobile-detail.png" alt="Complaint detail on a phone" width="260"> |
+
+## Status flow
+
+```
+            start work              mark resolved           confirm fix
+  Open  ─────────────────►  In progress  ─────────────►  Resolved  ─────────────►  Closed
+   │     (agent or admin,        ▲        (agent or admin,    │     (resident or admin)
+   │      agent must be          │         note required)     │
+   │      assigned first)        └────────────────────────────┘
+   │                                   not fixed, reopen
+   │                             (resident or admin, note required)
+   └──────────────────────────────────────────────────────────────────────────►  Closed
+                          close without action (admin only, note required)
+```
+
+The same rules live in one table (`TRANSITIONS` in `server/src/constants.js`). The server checks them on every request, and the React app uses a copy only to decide which buttons to show.
+
+## Tech stack
 
 | Layer | Tech |
 |---|---|
-| Frontend | React 19, Vite |
+| Frontend | React 19, React Router, Vite, plain CSS with design tokens, lucide icons |
 | Backend | Node.js, Express 5 |
-| Database | MongoDB, Mongoose |
-| Auth | JSON Web Tokens (planned) |
+| Database | MongoDB with Mongoose |
+| Auth | JSON Web Tokens, passwords hashed with bcrypt |
+| Tests | Node test runner, Supertest, in-memory MongoDB |
 
-## Folder Structure
+## How it works
 
-```
-complaint-management-system/
-├── client/                 React app (Vite)
-│   └── src/
-│       ├── api/            fetch helper for calling the API
-│       ├── components/     reusable UI pieces
-│       ├── pages/          one file per screen
-│       ├── App.jsx
-│       └── main.jsx
-├── server/                 Express API
-│   └── src/
-│       ├── config/         database connection
-│       ├── controllers/    request handlers
-│       ├── middleware/     error handling, auth
-│       ├── models/         Mongoose schemas
-│       ├── routes/         API routes
-│       ├── app.js          Express app setup
-│       └── index.js        server entry point
-└── package.json            scripts to run both together
-```
+- **Login:** the server checks the password with bcrypt and returns a signed JWT. The React app stores it and sends it as a `Bearer` token. If the token expires, the app logs out by itself.
+- **Roles:** every API route checks who is asking. Residents only ever get their own complaints and agents only the ones assigned to them. Asking for someone else's complaint returns 404, so nobody can guess which case numbers exist.
+- **Case numbers:** a small `counters` collection is increased with `$inc` for each new complaint, so two complaints filed at the same moment never get the same number.
+- **History:** every status change and assignment is saved with who did it and when. The detail page merges this history with the comments into one timeline.
+- **Safety:** passwords are never sent back by the API, input is checked in the browser and again on the server, and unknown errors return a generic message.
 
-## Getting Started
+A longer, plain English walkthrough for interviews is in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
+
+## Try it locally
 
 ### Requirements
 
 - Node.js 20 or newer
-- MongoDB (local install or a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster)
+- Nothing else. `npm run dev` starts a local MongoDB for you. The first run downloads the MongoDB program once, so it can take a minute.
 
 ### Setup
 
 ```bash
-# 1. Clone the repo
+# 1. Get the code
 git clone https://github.com/rahilkhan5/complaint-management-system.git
 cd complaint-management-system
 
-# 2. Install all dependencies (root, server and client)
+# 2. Install everything (root, server and client)
 npm run install:all
 
-# 3. Create the server environment file
+# 3. Create the server settings file, then open it and set JWT_SECRET to a long random string
 cp server/.env.example server/.env
-# then open server/.env and set MONGO_URI
 
-# 4. Start client and server together
+# 4. Start the database, the API and the React app together
 npm run dev
+
+# 5. In a second terminal, load the demo data
+npm run seed
 ```
 
-- Client: http://localhost:5173
-- API: http://localhost:5000/api
+Open http://localhost:5173 and use one of the demo buttons on the login page.
 
-### Environment Variables (`server/.env`)
+### Demo accounts
 
-| Name | Description | Example |
+All demo accounts use the password `Demo@1234`.
+
+| Role | Email | Name |
 |---|---|---|
-| `PORT` | API port | `5000` |
-| `CLIENT_URL` | Allowed origin for CORS | `http://localhost:5173` |
+| Resident | resident@demo.com | Ahmed Raza |
+| Support agent | agent@demo.com | Imran Qureshi |
+| Support agent | agent2@demo.com | Farah Siddiqui |
+| Admin | admin@demo.com | Sana Iqbal |
+
+### Using MongoDB Atlas instead
+
+Put your Atlas connection string in `MONGO_URI` inside `server/.env`, then start only the API and the app with `npm run dev:app`.
+
+### Environment variables (`server/.env`)
+
+| Name | What it is | Example |
+|---|---|---|
+| `PORT` | Port for the API | `5000` |
+| `CLIENT_URL` | Address of the React app, allowed by CORS | `http://localhost:5173` |
 | `MONGO_URI` | MongoDB connection string | `mongodb://127.0.0.1:27017/complaint-management` |
-| `JWT_SECRET` | Secret for signing login tokens | any long random string |
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/health` | API and database status |
-
-More endpoints will be listed here as features are built.
+| `JWT_SECRET` | Secret used to sign login tokens | a long random string |
+| `JWT_EXPIRES_IN` | How long a login lasts | `7d` |
 
 ## Scripts
+
+Run these from the project folder.
 
 | Command | What it does |
 |---|---|
 | `npm run install:all` | Install dependencies in root, server and client |
-| `npm run dev` | Run server and client together |
-| `npm run dev:server` | Run only the API |
-| `npm run dev:client` | Run only the React app |
-| `npm run build` | Build the client for production |
+| `npm run dev` | Start local MongoDB, the API and the React app together |
+| `npm run dev:app` | Start only the API and the React app (for Atlas) |
+| `npm run seed` | Reset the database with demo users and complaints |
+| `npm test` | Run the API tests |
+| `npm run lint` | Check the React code |
+| `npm run build` | Build the React app for production |
+
+## API
+
+All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
+
+| Method | Route | Who | What it does |
+|---|---|---|---|
+| GET | `/health` | anyone | API and database status |
+| POST | `/auth/register` | anyone | Create a resident account |
+| POST | `/auth/login` | anyone | Log in and get a token |
+| GET | `/auth/me` | 🔒 any user | The logged in user |
+| GET | `/complaints` | 🔒 any user | List complaints the user may see. Filters: `status`, `category`, `priority`, `q`, `unassigned`, `page`, `limit` |
+| GET | `/complaints/stats` | 🔒 any user | Counts by status, weekly trends, and for admins the category breakdown |
+| POST | `/complaints` | 🔒 resident | File a complaint |
+| GET | `/complaints/:id` | 🔒 owner, assignee, admin | One complaint with history and comments |
+| PATCH | `/complaints/:id/status` | 🔒 depends on the status flow | Change the status, with a note when needed |
+| PATCH | `/complaints/:id/assign` | 🔒 admin | Assign or reassign an agent |
+| POST | `/complaints/:id/comments` | 🔒 owner, assignee, admin | Add a comment |
+| GET | `/users` | 🔒 admin | List users with each agent's open workload |
+| POST | `/users` | 🔒 admin | Create an agent or admin account |
+| PATCH | `/users/:id` | 🔒 admin | Turn an account on or off |
+
+## Tests
+
+```bash
+npm test
+```
+
+20 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search and staff management. Each test run uses its own in-memory MongoDB, so it never touches your data.
+
+## Folder structure
+
+```
+complaint-management-system/
+├── client/                    React app (Vite)
+│   └── src/
+│       ├── api/               fetch wrapper and one function per API call
+│       ├── components/        reusable pieces: sticker, file list, timeline, fields
+│       ├── context/           logged in user (AuthProvider, useAuth)
+│       ├── hooks/             small shared hooks
+│       ├── pages/             one file per screen
+│       ├── styles/            tokens, base, components, layout, pages
+│       ├── constants.js       labels and the status rules for the UI
+│       └── App.jsx            routes
+├── server/                    Express API
+│   ├── scripts/               local database and demo data
+│   ├── src/
+│   │   ├── config/            database connection
+│   │   ├── controllers/       what each route does
+│   │   ├── middleware/        login check, role check, errors
+│   │   ├── models/            User, Complaint, Counter
+│   │   ├── routes/            URL to controller mapping
+│   │   ├── constants.js       roles, categories and status rules
+│   │   └── app.js             Express setup
+│   └── test/                  API tests
+└── docs/                      product notes, walkthrough and screenshots
+```
+
+## What I would add next
+
+- Photo upload on complaints
+- Email or SMS when the status changes
+- Live deployment (React on Vercel, API on Render, database on MongoDB Atlas)
 
 ## Author
 

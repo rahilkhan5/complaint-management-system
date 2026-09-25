@@ -14,7 +14,10 @@ export function AuthProvider({ children }) {
     authApi
       .me()
       .then((data) => setUser(data.user))
-      .catch(() => tokenStore.clear())
+      // Only forget the token when the server rejects it, not when the server is just unreachable
+      .catch((error) => {
+        if (error.status === 401) tokenStore.clear()
+      })
       .finally(() => setChecking(false))
   }, [])
 

@@ -235,17 +235,18 @@ export default function ComplaintDetailPage() {
         </div>
       )}
 
-      <div className="case">
-        <article className="sheet">
-          <header className="case__head">
-            <div className="case__number-row">
-              <span className="case__number">{complaint.caseNumber}</span>
-              {/* key makes React replay the stamp animation whenever the status changes */}
-              <StatusSticker key={complaint.status} status={complaint.status} size="lg" stamped />
-            </div>
-            <h1 className="case__title">{complaint.title}</h1>
-          </header>
+      <header className="case__head">
+        <div className="case__number-row">
+          <span className="case__number">{complaint.caseNumber}</span>
+          {/* key makes React replay the stamp animation whenever the status changes */}
+          <StatusSticker key={complaint.status} status={complaint.status} size="lg" stamped />
+        </div>
+        <h1 className="case__title">{complaint.title}</h1>
+      </header>
 
+      {/* On phones the side panel comes first, so the next action is right under the case number */}
+      <div className="case">
+        <article className="sheet case__sheet">
           <dl className="meta">
             <div>
               <dt>Category</dt>

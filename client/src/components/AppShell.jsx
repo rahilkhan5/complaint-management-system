@@ -17,8 +17,8 @@ export default function AppShell() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
 
-  // Residents on phones get a fixed "File a complaint" button, except on the form itself
-  const showActionBar = user.role === 'resident' && pathname !== '/complaints/new'
+  // Residents on phones get a fixed "File a complaint" button on their list
+  const showActionBar = user.role === 'resident' && pathname === '/complaints'
   // The list and every complaint page count as "Complaints" in the menu
   const onList = pathname.startsWith('/complaints') && pathname !== '/complaints/new'
 
