@@ -4,6 +4,9 @@ export const authApi = {
   login: (email, password) => apiRequest('/auth/login', { method: 'POST', body: { email, password } }),
   register: (data) => apiRequest('/auth/register', { method: 'POST', body: data }),
   me: () => apiRequest('/auth/me'),
+  updateMe: (data) => apiRequest('/auth/me', { method: 'PATCH', body: data }),
+  changePassword: (currentPassword, newPassword) =>
+    apiRequest('/auth/password', { method: 'PATCH', body: { currentPassword, newPassword } }),
 }
 
 export const complaintsApi = {

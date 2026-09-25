@@ -29,6 +29,7 @@ I worked 3 years as a Customer Care Representative at a housing society complain
 **Everyone**
 - Search by title, case number or place, filter by status, category and priority
 - Filters live in the URL, so a filtered list can be bookmarked or shared
+- A "My account" page to change your name, email, phone and address, and to change your password
 - Works on phones and on desktop
 
 ## Screenshots
@@ -74,6 +75,7 @@ The same rules live in one table (`TRANSITIONS` in `server/src/constants.js`). T
 ## How it works
 
 - **Login:** the server checks the password with bcrypt and returns a signed JWT. The React app stores it and sends it as a `Bearer` token. If the token expires, the app logs out by itself.
+- **Password change:** each user has a `tokenVersion` that is also written into their token. Changing the password increases it, so tokens on every other device stop working at once, while the device that made the change gets a fresh token.
 - **Roles:** every API route checks who is asking. Residents only ever get their own complaints and agents only the ones assigned to them. Asking for someone else's complaint returns 404, so nobody can guess which case numbers exist.
 - **Case numbers:** a small `counters` collection is increased with `$inc` for each new complaint, so two complaints filed at the same moment never get the same number.
 - **History:** every status change and assignment is saved with who did it and when. The detail page merges this history with the comments into one timeline.
@@ -159,6 +161,8 @@ All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
 | POST | `/auth/register` | anyone | Create a resident account |
 | POST | `/auth/login` | anyone | Log in and get a token |
 | GET | `/auth/me` | 🔒 any user | The logged in user |
+| PATCH | `/auth/me` | 🔒 any user | Update your own name, email, phone and address |
+| PATCH | `/auth/password` | 🔒 any user | Change your password (needs the current one) and log out other devices |
 | GET | `/complaints` | 🔒 any user | List complaints the user may see. Filters: `status`, `category`, `priority`, `q`, `unassigned`, `page`, `limit` |
 | GET | `/complaints/stats` | 🔒 any user | Counts by status, weekly trends, and for admins the category breakdown |
 | POST | `/complaints` | 🔒 resident | File a complaint |
@@ -176,7 +180,7 @@ All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
 npm test
 ```
 
-21 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue and staff management. Each test run uses its own in-memory MongoDB, so it never touches your data.
+26 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue, staff management, and updating your own account and password. Each test run uses its own in-memory MongoDB, so it never touches your data.
 
 ## Folder structure
 

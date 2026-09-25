@@ -13,6 +13,9 @@ const userSchema = new mongoose.Schema(
     // Residents only: where they live, e.g. "Block C, Street 4, House 27"
     address: { type: String, trim: true, maxlength: 120 },
     isActive: { type: Boolean, default: true },
+    // Goes up by one on every password change. Tokens carry this number,
+    // so tokens made before the change stop working (see middleware/auth.js)
+    tokenVersion: { type: Number, default: 0 },
   },
   { timestamps: true },
 )
@@ -31,6 +34,7 @@ userSchema.methods.comparePassword = function (plainPassword) {
 userSchema.set('toJSON', {
   transform(doc, ret) {
     delete ret.password
+    delete ret.tokenVersion
     delete ret.__v
     return ret
   },

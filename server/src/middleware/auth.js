@@ -22,6 +22,10 @@ export async function protect(req, res, next) {
   if (!user || !user.isActive) {
     throw httpError(401, 'This account is no longer active')
   }
+  // The password was changed after this token was made
+  if ((payload.v ?? 0) !== (user.tokenVersion ?? 0)) {
+    throw httpError(401, 'Your password was changed. Please log in again')
+  }
 
   req.user = user
   next()

@@ -28,6 +28,9 @@ In development, Vite runs the React app on port 5173 and forwards every request 
 - **Log in:** `login` finds the user by email, compares the password with `bcrypt.compare`, and returns a JWT that holds the user's id and role. The token expires after 7 days.
 - **Every request after that:** the React app sends the token. The `protect` middleware verifies it and also checks the account is still active, so turning an account off works right away.
 - **The password never leaves the server:** the field has `select: false`, and `toJSON` removes it just in case.
+- **Changing the password:** `PATCH /api/auth/password` needs the current password first. Every user has a `tokenVersion` number, and each token carries a copy of it as `v`. A password change adds 1 to `tokenVersion`, so `protect` rejects every older token with 401 and other devices are logged out. The device that made the change gets a fresh token back, so it stays logged in.
+- **A wrong current password returns 400, not 401.** The React app logs out on any 401, and a typo should not throw the user out.
+- **Updating details:** `PATCH /api/auth/me` only copies name, email, phone and address from the request. Anything else, like `role`, is ignored, so nobody can make themselves an admin.
 - **On the React side:** `AuthProvider` keeps the logged in user. On page load it calls `/api/auth/me` to turn a saved token back into a user. If the API ever answers 401, the app logs out by itself.
 
 ## How roles and access work
@@ -73,12 +76,12 @@ The side panel shows each weekly number next to last week's, like "7, 4 more tha
 
 ## Tests
 
-`server/test/` has 21 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
+`server/test/` has 26 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
 
 ## Questions I expect in an interview
 
 **Why JWT and not sessions?**
-The API stays stateless: any server can check a token without shared session storage. The trade off is that a token cannot be cancelled early, which is why `protect` also checks that the account is still active on every request.
+The API stays stateless: any server can check a token without shared session storage. The trade off is that a token cannot be cancelled early, which is why `protect` also checks, on every request, that the account is still active and that the token's `v` matches the user's `tokenVersion`. That second check is how a password change logs out every other device.
 
 **Why return 404 instead of 403 for someone else's complaint?**
 403 would confirm the complaint exists. 404 gives nothing away.

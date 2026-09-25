@@ -57,3 +57,71 @@ export async function login(req, res) {
 export function me(req, res) {
   res.json({ user: req.user })
 }
+
+// PATCH /api/auth/me  (any logged in user updates their own details)
+export async function updateMe(req, res) {
+  const { name, email, phone, address } = req.body
+  const user = req.user
+
+  if (!name?.trim() || !email?.trim()) {
+    throw httpError(400, 'Name and email are required')
+  }
+  if (!EMAIL_PATTERN.test(email.trim())) {
+    throw httpError(400, 'Please enter a valid email address')
+  }
+  if (user.role === 'resident' && !address?.trim()) {
+    throw httpError(400, 'Please enter your house and street')
+  }
+
+  const newEmail = email.toLowerCase().trim()
+  if (newEmail !== user.email) {
+    const taken = await User.exists({ email: newEmail, _id: { $ne: user._id } })
+    if (taken) throw httpError(409, 'An account with this email already exists')
+  }
+
+  // Only these fields can change here. Role and active status are never taken from the request
+  user.name = name
+  user.email = newEmail
+  user.phone = phone ?? ''
+  user.address = address ?? ''
+
+  try {
+    await user.save()
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      throw httpError(400, Object.values(error.errors)[0].message)
+    }
+    throw error
+  }
+
+  res.json({ user })
+}
+
+// PATCH /api/auth/password
+export async function changePassword(req, res) {
+  const { currentPassword, newPassword } = req.body
+
+  if (!currentPassword || !newPassword) {
+    throw httpError(400, 'Please fill in both password fields')
+  }
+  if (newPassword.length < 8) {
+    throw httpError(400, 'New password must be at least 8 characters')
+  }
+
+  const user = await User.findById(req.user._id).select('+password')
+  // 400, not 401: a 401 would make the app log the user out for a simple typo
+  if (!(await user.comparePassword(currentPassword))) {
+    throw httpError(400, 'Your current password is not correct')
+  }
+  if (currentPassword === newPassword) {
+    throw httpError(400, 'Please choose a password different from the current one')
+  }
+
+  user.password = newPassword
+  // Logs out every other device that still has an old token
+  user.tokenVersion = (user.tokenVersion ?? 0) + 1
+  await user.save()
+
+  // A fresh token so this device stays logged in
+  res.json(authResponse(user))
+}

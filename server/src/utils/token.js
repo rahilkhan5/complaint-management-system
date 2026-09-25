@@ -9,7 +9,8 @@ function getSecret() {
 }
 
 export function signToken(user) {
-  return jwt.sign({ id: user._id.toString(), role: user.role }, getSecret(), {
+  const payload = { id: user._id.toString(), role: user.role, v: user.tokenVersion ?? 0 }
+  return jwt.sign(payload, getSecret(), {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   })
 }

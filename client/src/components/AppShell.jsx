@@ -54,13 +54,15 @@ export default function AppShell() {
           </nav>
 
           <div className="header__user">
-            <div className="header__who">
-              <span className="header__name">{user.name}</span>
-              <span className="header__role">{ROLE_LABELS[user.role]}</span>
-            </div>
-            <span className="avatar" aria-hidden="true">
-              {initials(user.name)}
-            </span>
+            <NavLink to="/account" className="header__account" aria-label={`My account, ${user.name}`}>
+              <span className="header__who">
+                <span className="header__name">{user.name}</span>
+                <span className="header__role">{ROLE_LABELS[user.role]}</span>
+              </span>
+              <span className="avatar" aria-hidden="true">
+                {initials(user.name)}
+              </span>
+            </NavLink>
             <button type="button" className="btn btn--ghost btn--sm" onClick={logout} aria-label="Log out">
               <LogOut size={16} aria-hidden="true" />
               <span className="header__logout-text">Log out</span>

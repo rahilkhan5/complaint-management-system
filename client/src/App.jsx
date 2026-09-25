@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router'
 import AppShell from './components/AppShell.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import AccountPage from './pages/AccountPage.jsx'
 import ComplaintDetailPage from './pages/ComplaintDetailPage.jsx'
 import ComplaintsPage from './pages/ComplaintsPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
@@ -22,6 +23,7 @@ export default function App() {
           <Route index element={<Navigate to="/complaints" replace />} />
           <Route path="complaints" element={<ComplaintsPage />} />
           <Route path="complaints/:id" element={<ComplaintDetailPage />} />
+          <Route path="account" element={<AccountPage />} />
 
           <Route element={<ProtectedRoute roles={['resident']} />}>
             <Route path="complaints/new" element={<NewComplaintPage />} />

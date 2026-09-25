@@ -904,6 +904,25 @@ fieldset.field legend {
   }
 }
 
+/* ---------- My account ---------- */
+.account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  max-width: 1000px;
+}
+
+@media (min-width: 960px) {
+  .account {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.account__title {
+  margin-bottom: 0;
+}
+
 /* ---------- Not found ---------- */
 .lost {
   display: grid;

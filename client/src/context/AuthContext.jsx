@@ -42,14 +42,27 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
+  const updateProfile = useCallback(async (form) => {
+    const data = await authApi.updateMe(form)
+    setUser(data.user)
+    return data.user
+  }, [])
+
+  // The server sends a new token, because the old one stops working after a password change
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    const data = await authApi.changePassword(currentPassword, newPassword)
+    tokenStore.set(data.token)
+    setUser(data.user)
+  }, [])
+
   const logout = useCallback(() => {
     tokenStore.clear()
     setUser(null)
   }, [])
 
   const value = useMemo(
-    () => ({ user, checking, login, register, logout }),
-    [user, checking, login, register, logout],
+    () => ({ user, checking, login, register, logout, updateProfile, changePassword }),
+    [user, checking, login, register, logout, updateProfile, changePassword],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
