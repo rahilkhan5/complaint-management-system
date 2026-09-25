@@ -98,9 +98,14 @@ describe('complaints', () => {
   it('lets the resident reopen a resolved complaint with a note', async () => {
     const resident = await createUser('resident')
     const admin = await createUser('admin')
+    const agent = await createUser('agent')
     const complaint = await fileComplaint(resident.token)
     const url = `/api/complaints/${complaint._id}/status`
 
+    await api()
+      .patch(`/api/complaints/${complaint._id}/assign`)
+      .set(auth(admin.token))
+      .send({ agentId: agent.user._id })
     await api().patch(url).set(auth(admin.token)).send({ status: 'in_progress' })
     await api().patch(url).set(auth(admin.token)).send({ status: 'resolved', note: 'Fixed' })
 
@@ -123,6 +128,19 @@ describe('complaints', () => {
       .set(auth(admin.token))
       .send({ status: 'resolved', note: 'skip ahead' })
     assert.equal(res.status, 400)
+  })
+
+  it('needs an agent before work can start', async () => {
+    const resident = await createUser('resident')
+    const admin = await createUser('admin')
+    const complaint = await fileComplaint(resident.token)
+
+    const res = await api()
+      .patch(`/api/complaints/${complaint._id}/status`)
+      .set(auth(admin.token))
+      .send({ status: 'in_progress' })
+    assert.equal(res.status, 400)
+    assert.match(res.body.message, /assign an agent/i)
   })
 
   it('adds comments and blocks them once closed', async () => {

@@ -182,6 +182,10 @@ export async function updateStatus(req, res) {
     throw httpError(403, 'You are not allowed to make this change')
   }
 
+  if (complaint.status === 'open' && status === 'in_progress' && !complaint.assignedTo) {
+    throw httpError(400, 'Assign an agent before starting work')
+  }
+
   const trimmedNote = note?.trim()
   const reopening = complaint.status === 'resolved' && status === 'in_progress'
   const closingEarly = complaint.status === 'open' && status === 'closed'
