@@ -1,4 +1,5 @@
 import User from '../models/User.js'
+import { assertDemoAccountUnlocked } from '../utils/demo.js'
 import { httpError } from '../utils/httpError.js'
 import { signToken } from '../utils/token.js'
 
@@ -62,6 +63,7 @@ export function me(req, res) {
 export async function updateMe(req, res) {
   const { name, email, phone, address } = req.body
   const user = req.user
+  assertDemoAccountUnlocked(user, 'Demo accounts cannot be changed on the live demo, so everyone can keep using them.')
 
   if (!name?.trim() || !email?.trim()) {
     throw httpError(400, 'Name and email are required')
@@ -100,6 +102,7 @@ export async function updateMe(req, res) {
 // PATCH /api/auth/password
 export async function changePassword(req, res) {
   const { currentPassword, newPassword } = req.body
+  assertDemoAccountUnlocked(req.user, 'Demo accounts cannot be changed on the live demo, so everyone can keep using them.')
 
   if (!currentPassword || !newPassword) {
     throw httpError(400, 'Please fill in both password fields')

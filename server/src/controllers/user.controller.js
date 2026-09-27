@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import { ROLES } from '../constants.js'
 import Complaint from '../models/Complaint.js'
 import User from '../models/User.js'
+import { assertDemoAccountUnlocked } from '../utils/demo.js'
 import { httpError } from '../utils/httpError.js'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -56,12 +57,11 @@ export async function updateUser(req, res) {
     throw httpError(400, 'You cannot deactivate your own account')
   }
 
-  const user = await User.findByIdAndUpdate(
-    req.params.id,
-    { isActive },
-    { returnDocument: 'after', runValidators: true },
-  )
+  const user = await User.findById(req.params.id)
   if (!user) throw httpError(404, 'User not found')
+  assertDemoAccountUnlocked(user, 'Demo accounts cannot be turned off on the live demo, so everyone can keep using them.')
 
+  user.isActive = isActive
+  await user.save()
   res.json(user)
 }

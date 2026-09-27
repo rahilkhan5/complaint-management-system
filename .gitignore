@@ -5,6 +5,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+# Only holds the public address of the live API, no secrets
+!client/.env.production
 
 # Build output
 dist/

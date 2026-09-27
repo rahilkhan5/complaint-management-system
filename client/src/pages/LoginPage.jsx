@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
+import { healthApi } from '../api/services.js'
 import Alert from '../components/Alert.jsx'
 import { TextField } from '../components/Fields.jsx'
 import Logo from '../components/Logo.jsx'
@@ -25,6 +26,30 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [waking, setWaking] = useState(false)
+  const [isDemo, setIsDemo] = useState(false)
+
+  // The live demo runs on a free server that sleeps when nobody uses it.
+  // If it does not answer quickly, tell the visitor why the first login is slow.
+  useEffect(() => {
+    let finished = false
+    const timer = setTimeout(() => {
+      if (!finished) setWaking(true)
+    }, 2500)
+    healthApi
+      .check()
+      .then((health) => setIsDemo(Boolean(health.demo)))
+      .catch(() => {})
+      .finally(() => {
+        finished = true
+        clearTimeout(timer)
+        setWaking(false)
+      })
+    return () => {
+      finished = true
+      clearTimeout(timer)
+    }
+  }, [])
 
   // Already logged in: nothing to do here
   if (user) return <Navigate to="/complaints" replace />
@@ -64,6 +89,11 @@ export default function LoginPage() {
         </div>
 
         <form className="form" onSubmit={handleSubmit} noValidate>
+          {waking && (
+            <Alert tone="info">
+              The server is waking up. It sleeps when nobody uses it, so the first visit can take up to a minute.
+            </Alert>
+          )}
           {error && <Alert tone="error">{error}</Alert>}
           <TextField
             id="email"
@@ -96,7 +126,10 @@ export default function LoginPage() {
           <h2 id="demo-title" className="demo__title">
             Try a demo account
           </h2>
-          <p className="demo__text">Each role sees a different part of the system.</p>
+          <p className="demo__text">
+            Each role sees a different part of the system.
+            {isDemo && ' Changes you make are cleared when the server restarts.'}
+          </p>
           <ul className="demo__list">
             {DEMO_ACCOUNTS.map((account) => (
               <li key={account.role}>

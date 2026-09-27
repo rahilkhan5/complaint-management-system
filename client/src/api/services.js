@@ -1,5 +1,9 @@
 import { apiRequest } from './client.js'
 
+export const healthApi = {
+  check: () => apiRequest('/health'),
+}
+
 export const authApi = {
   login: (email, password) => apiRequest('/auth/login', { method: 'POST', body: { email, password } }),
   register: (data) => apiRequest('/auth/register', { method: 'POST', body: data }),
