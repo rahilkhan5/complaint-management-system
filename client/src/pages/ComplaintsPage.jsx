@@ -24,7 +24,8 @@ function summaryFor(role, stats) {
     if (stats.total === 0) return 'Anything broken in your block? File a complaint and follow it here.'
     const toConfirm = stats.byStatus.resolved
     const confirmText = toConfirm > 0 ? ` ${toConfirm} fixed and waiting for you to confirm.` : ''
-    return `You have filed ${stats.total} ${stats.total === 1 ? 'complaint' : 'complaints'}. ${unfinished} still being worked on.${confirmText}`
+    const removedText = stats.removed > 0 ? ` ${stats.removed} removed by the office.` : ''
+    return `You have filed ${stats.total} ${stats.total === 1 ? 'complaint' : 'complaints'}. ${unfinished} still being worked on.${confirmText}${removedText}`
   }
   if (role === 'agent') {
     return unfinished === 0
@@ -257,7 +258,7 @@ export default function ComplaintsPage() {
               }
             >
               {removed
-                ? 'When an admin removes a complaint, it is kept here for the record.'
+                ? 'Complaints the office removes show up here, with the reason.'
                 : hasFilters
                   ? 'Try a different status, category or search word.'
                   : user.role === 'agent'

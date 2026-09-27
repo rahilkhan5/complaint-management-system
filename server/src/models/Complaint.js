@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { CATEGORIES, PRIORITIES, STATUSES } from '../constants.js'
+import { CATEGORIES, PRIORITIES, REMOVAL_REASONS, STATUSES } from '../constants.js'
 import { nextSequence } from './Counter.js'
 
 const commentSchema = new mongoose.Schema(
@@ -17,13 +17,15 @@ const commentSchema = new mongoose.Schema(
 // One entry for every important event, so the complaint keeps its full history
 const historySchema = new mongoose.Schema(
   {
-    type: { type: String, enum: ['created', 'status', 'assigned', 'edited', 'removed'], required: true },
+    type: { type: String, enum: ['created', 'status', 'assigned', 'edited', 'removed', 'restored'], required: true },
     status: { type: String, enum: STATUSES },
     note: { type: String, trim: true, maxlength: 500 },
     by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     // Which fields the resident changed, for "edited" entries
     fields: { type: [String], default: undefined },
+    // Why the complaint was removed, for "removed" entries. The note holds the message to the resident.
+    reason: { type: String, enum: Object.keys(REMOVAL_REASONS) },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 )
@@ -43,8 +45,8 @@ const complaintSchema = new mongoose.Schema(
     history: [historySchema],
     resolvedAt: Date,
     closedAt: Date,
-    // Removed by an admin (rude or useless). Hidden from the resident and the agent, kept for the record.
-    // The reason is in the "removed" history entry.
+    // Removed by an admin (rude or useless). The resident can still read it and see why, the agent cannot.
+    // The reason is in the "removed" history entry. An admin can restore it.
     removed: { type: Boolean, default: false },
     removedAt: Date,
   },

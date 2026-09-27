@@ -13,6 +13,7 @@ I worked 3 years as a Customer Care Representative at a housing society complain
 - File a complaint with a category, priority, location and description
 - Get a case number right away (CMS-0001, CMS-0002, ...)
 - Edit the complaint to fix or add details, until an agent starts work
+- If the office removes a complaint, see it marked "Removed" with the reason, the office's message and a tip for next time
 - Follow the status, read notes from the agent, and reply with comments
 - Confirm the fix and close the complaint, or reopen it if the problem is still there
 
@@ -26,8 +27,9 @@ I worked 3 years as a Customer Care Representative at a housing society complain
 - Assign or reassign agents, and see how many open complaints each agent holds
 - Weekly trends (new and resolved, compared with last week) and unfinished work by category
 - Add staff accounts and turn accounts off
-- Remove a rude comment: everyone else sees "This comment was removed by an admin", admins can still read it
-- Remove a rude or useless complaint with a reason: it disappears for the resident and the agent, and stays under "Removed" for the record
+- Remove a rude comment: everyone else sees "This comment was removed by an admin", admins can still read it. Restore it if it was a mistake
+- Remove a complaint by choosing a reason (abusive language, incomplete information, duplicate, not a real complaint, other) and an optional message. The agent stops seeing it, the resident sees why, and it stays under "Removed". Restore it any time
+- A reminder before removing for "incomplete information": ask the resident in a comment first, because they can edit the complaint themselves
 
 **Everyone**
 - Search by title, case number or place, filter by status, category and priority
@@ -82,7 +84,7 @@ The same rules live in one table (`TRANSITIONS` in `server/src/constants.js`). T
 - **Roles:** every API route checks who is asking. Residents only ever get their own complaints and agents only the ones assigned to them. Asking for someone else's complaint returns 404, so nobody can guess which case numbers exist.
 - **Case numbers:** a small `counters` collection is increased with `$inc` for each new complaint, so two complaints filed at the same moment never get the same number.
 - **History:** every status change and assignment is saved with who did it and when. The detail page merges this history with the comments into one timeline.
-- **Removing, not deleting:** a removed complaint or comment is only hidden. The text, the reason and who removed it stay in the database, so there is always a record, and case numbers never disappear.
+- **Removing, not deleting:** a removed complaint or comment is only hidden. The text, the reason and who removed it stay in the database, so there is always a record, case numbers never disappear, and an admin can restore it.
 - **Safety:** passwords are never sent back by the API, input is checked in the browser and again on the server, and unknown errors return a generic message.
 
 A longer, plain English walkthrough for interviews is in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md). The design system (colors, type, spacing and the rules behind the "case file" look) is written down in [docs/DESIGN.md](docs/DESIGN.md).
@@ -174,9 +176,11 @@ All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
 | PATCH | `/complaints/:id` | 🔒 resident who filed it | Edit the details while the complaint is still open |
 | PATCH | `/complaints/:id/status` | 🔒 depends on the status flow | Change the status, with a note when needed |
 | PATCH | `/complaints/:id/assign` | 🔒 admin | Assign or reassign an agent |
-| PATCH | `/complaints/:id/remove` | 🔒 admin | Remove a complaint, with a reason |
+| PATCH | `/complaints/:id/remove` | 🔒 admin | Remove a complaint. Body: `reason` (`abusive`, `incomplete`, `duplicate`, `not_real`, `other`) and an optional `message` for the resident, required for `other` |
+| PATCH | `/complaints/:id/restore` | 🔒 admin | Put a removed complaint back, with the status it had |
 | POST | `/complaints/:id/comments` | 🔒 owner, assignee, admin | Add a comment |
 | PATCH | `/complaints/:id/comments/:commentId/remove` | 🔒 admin | Remove a comment (the text is kept for admins) |
+| PATCH | `/complaints/:id/comments/:commentId/restore` | 🔒 admin | Show a removed comment again |
 | GET | `/users` | 🔒 admin | List users with each agent's open workload |
 | POST | `/users` | 🔒 admin | Create an agent or admin account |
 | PATCH | `/users/:id` | 🔒 admin | Turn an account on or off |
@@ -187,7 +191,7 @@ All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
 npm test
 ```
 
-34 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue, staff management, updating your own account and password, editing a complaint, and removing comments and complaints. Each test run uses its own in-memory MongoDB, so it never touches your data.
+36 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue, staff management, updating your own account and password, editing a complaint, and removing and restoring comments and complaints. Each test run uses its own in-memory MongoDB, so it never touches your data.
 
 ## Folder structure
 

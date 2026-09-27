@@ -59,10 +59,13 @@ All allowed moves are in one object, `TRANSITIONS`, in `server/src/constants.js`
 ## Editing and removing
 
 - **A resident can edit a complaint while it is open.** `updateComplaint` checks that the user filed it and that the status is still `open`. Once an agent starts work, the details are locked and the resident adds a comment instead, so the agent never works from details that changed under them. Each edit adds an "edited" history entry that lists which fields changed.
-- **An admin can remove a rude comment.** The comment gets `removed: true`, but its text stays in the database. `toResponse()` builds every complaint the API sends back, and for anyone who is not an admin it blanks out the text of removed comments. So the resident and the agent see "This comment was removed by an admin", while admins can still read the original.
-- **An admin can remove a whole complaint, with a reason.** It is not deleted. It gets `removed: true` and a "removed" history entry with the reason. Every list and count adds `removed: { $ne: true }` to its filter, so it disappears for the resident and the agent. Admins find it under the "Removed" filter.
+- **An admin can remove a rude comment.** The comment gets `removed: true`, but its text stays in the database. `toResponse()` builds every complaint the API sends back, and for anyone who is not an admin it blanks out the text of removed comments. So the resident and the agent see "This comment was removed by an admin", while admins can still read the original, and can restore it.
+- **An admin can remove a whole complaint.** It is not deleted. It gets `removed: true` and a "removed" history entry with a reason from a fixed list (`REMOVAL_REASONS` in `server/src/constants.js`) and an optional message. The list is fixed on purpose: the resident reads the reason, so it is always polite and the same every time. "Other" needs a message, so the resident still learns why.
+- **Who sees a removed complaint:** the agent does not (it is not live work any more, and asking for it answers 410 Gone). The resident still sees it in their list with a "Removed" sticker, and the complaint page tells them the reason, the admin's message and a tip for next time. Admins find it under the "Removed" filter. Nobody can change it or comment on it while it is removed.
+- **Counts:** every count uses `removed: { $ne: true }`, so removed complaints never show up as open work. The one exception is the resident's "All" number, which also counts their removed complaints, because their All list shows them.
 - **Why `$ne: true` and not `removed: false`?** Complaints saved before this feature do not have the field at all. `removed: false` would skip them; `$ne: true` matches them.
-- **A removed complaint answers 410 Gone** to its resident and agent. They already know it exists, so there is nothing to hide, and a clear "removed by the office" is kinder than "not found". Everyone else still gets 404.
+- **Restore:** `restoreComplaint` sets `removed` back to false and adds a "restored" history entry. The status was never touched, so the complaint comes back exactly where it was.
+- **Asking before removing:** when an admin picks "Incomplete information", the form checks the comments. If nobody from the office has asked the resident for details yet, it says so, because the resident can edit the complaint and fix it.
 
 ## The list page
 
@@ -84,7 +87,7 @@ The side panel shows each weekly number next to last week's, like "7, 4 more tha
 
 ## Tests
 
-`server/test/` has 34 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
+`server/test/` has 36 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
 
 ## Questions I expect in an interview
 

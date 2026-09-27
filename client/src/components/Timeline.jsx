@@ -8,12 +8,13 @@ import {
   MessageSquareOff,
   Pencil,
   RotateCcw,
+  Undo2,
   UserRoundCheck,
   Wrench,
 } from 'lucide-react'
 import { useState } from 'react'
 import { ROLE_LABELS } from '../constants.js'
-import { formatDateTime } from '../utils/format.js'
+import { describeRemoval, formatDateTime } from '../utils/format.js'
 
 // Puts status changes, assignments and comments into one list, oldest first
 function buildEvents(complaint) {
@@ -51,7 +52,21 @@ function describe(event) {
     return { Icon: Pencil, text: <>{who} edited {listFields(entry.fields)}</> }
   }
   if (event.kind === 'removed') {
-    return { Icon: Ban, status: 'removed', text: <>{who} removed this complaint</> }
+    const { label, message } = describeRemoval(entry)
+    return {
+      Icon: Ban,
+      status: 'removed',
+      text: <>{who} removed this complaint</>,
+      note: (
+        <>
+          <strong>{label}</strong>
+          {message && <>. {message}</>}
+        </>
+      ),
+    }
+  }
+  if (event.kind === 'restored') {
+    return { Icon: Undo2, text: <>{who} restored this complaint</> }
   }
   if (event.kind === 'assigned') {
     return {
@@ -75,18 +90,18 @@ function describe(event) {
   return { Icon: Archive, status: 'closed', text: <>{who} closed it</> }
 }
 
-// One comment. Admins get a Remove button (onRemove is only passed for them).
-function CommentItem({ comment, at, onRemove }) {
+// One comment. Admins get Remove and Restore buttons (the handlers are only passed for them).
+function CommentItem({ comment, at, onRemove, onRestore }) {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const { author, text, removed } = comment
 
-  async function remove() {
+  async function run(action) {
     setBusy(true)
     setError('')
     try {
-      await onRemove(comment._id)
+      await action(comment._id)
       setConfirming(false)
     } catch (err) {
       setError(err.message)
@@ -122,6 +137,17 @@ function CommentItem({ comment, at, onRemove }) {
                 <p className="timeline__original">{text}</p>
               </>
             )}
+            {onRestore && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm comment-tool"
+                disabled={busy}
+                onClick={() => run(onRestore)}
+              >
+                {busy ? <span className="spinner" aria-hidden="true" /> : <Undo2 size={14} aria-hidden="true" />}
+                Restore comment
+              </button>
+            )}
           </div>
         ) : (
           <p className="timeline__note">{text}</p>
@@ -142,7 +168,13 @@ function CommentItem({ comment, at, onRemove }) {
               <button type="button" className="btn btn--ghost btn--sm" disabled={busy} onClick={() => setConfirming(false)}>
                 Cancel
               </button>
-              <button type="button" className="btn btn--danger btn--sm" disabled={busy} onClick={remove} autoFocus>
+              <button
+                type="button"
+                className="btn btn--danger btn--sm"
+                disabled={busy}
+                onClick={() => run(onRemove)}
+                autoFocus
+              >
                 {busy && <span className="spinner" aria-hidden="true" />}
                 Remove
               </button>
@@ -159,17 +191,25 @@ function CommentItem({ comment, at, onRemove }) {
   )
 }
 
-export default function Timeline({ complaint, onRemoveComment }) {
+export default function Timeline({ complaint, onRemoveComment, onRestoreComment }) {
   const events = buildEvents(complaint)
 
   return (
     <ol className="timeline">
       {events.map((event) => {
         if (event.kind === 'comment') {
-          return <CommentItem key={event.id} comment={event.entry} at={event.at} onRemove={onRemoveComment} />
+          return (
+            <CommentItem
+              key={event.id}
+              comment={event.entry}
+              at={event.at}
+              onRemove={onRemoveComment}
+              onRestore={onRestoreComment}
+            />
+          )
         }
 
-        const { Icon, status, text } = describe(event)
+        const { Icon, status, text, note = event.entry.note } = describe(event)
         return (
           <li key={event.id} className="timeline__item" data-status={status}>
             <span className="timeline__icon" aria-hidden="true">
@@ -182,7 +222,7 @@ export default function Timeline({ complaint, onRemoveComment }) {
                   · {formatDateTime(event.at)}
                 </time>
               </p>
-              {event.entry.note && <p className="timeline__note">{event.entry.note}</p>}
+              {note && <p className="timeline__note">{note}</p>}
             </div>
           </li>
         )

@@ -26,6 +26,24 @@ export const PRIORITY_LABELS = {
   high: 'High',
 }
 
+// Same keys as server/src/constants.js. The resident reads these, so they stay polite.
+export const REMOVAL_REASONS = {
+  abusive: 'Abusive language',
+  incomplete: 'Incomplete information',
+  duplicate: 'Duplicate complaint',
+  not_real: 'Not a real complaint',
+  other: 'Other',
+}
+
+// What the resident can do better next time, shown under the reason
+export const REMOVAL_TIPS = {
+  abusive: 'Please keep your words polite, even when you are upset. The team is here to help you.',
+  incomplete:
+    'Next time, please write the full address and what exactly is wrong, so an agent can find and fix it quickly.',
+  duplicate: 'This problem is already filed in another complaint, so please follow that one.',
+  not_real: 'Please file complaints only for real problems, so the team can reach everyone who needs help.',
+}
+
 export const ROLE_LABELS = {
   resident: 'Resident',
   agent: 'Support agent',

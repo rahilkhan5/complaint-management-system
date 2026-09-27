@@ -110,20 +110,53 @@ describe('removing a comment', () => {
   })
 })
 
+describe('restoring a comment', () => {
+  it('shows the comment to everyone again', async () => {
+    const resident = await createUser('resident')
+    const admin = await createUser('admin')
+    const complaint = await fileComplaint(resident.token)
+    const posted = await api()
+      .post(`/api/complaints/${complaint._id}/comments`)
+      .set(auth(resident.token))
+      .send({ text: 'Removed by mistake' })
+    const url = `/api/complaints/${complaint._id}/comments/${posted.body.comments[0]._id}`
+
+    assert.equal((await api().patch(`${url}/restore`).set(auth(admin.token))).status, 400)
+    await api().patch(`${url}/remove`).set(auth(admin.token))
+    assert.equal((await api().patch(`${url}/restore`).set(auth(resident.token))).status, 403)
+
+    const restored = await api().patch(`${url}/restore`).set(auth(admin.token))
+    assert.equal(restored.status, 200)
+    const residentView = await api().get(`/api/complaints/${complaint._id}`).set(auth(resident.token))
+    assert.equal(residentView.body.comments[0].removed, false)
+    assert.equal(residentView.body.comments[0].text, 'Removed by mistake')
+  })
+})
+
 describe('removing a complaint', () => {
-  it('needs a reason and an admin', async () => {
+  it('needs an admin and a reason from the list', async () => {
     const resident = await createUser('resident')
     const admin = await createUser('admin')
     const complaint = await fileComplaint(resident.token)
     const remove = (token, body) => api().patch(`/api/complaints/${complaint._id}/remove`).set(auth(token)).send(body)
 
-    assert.equal((await remove(resident.token, { reason: 'Mine' })).status, 403)
-    assert.equal((await remove(admin.token, { reason: '   ' })).status, 400)
-    assert.equal((await remove(admin.token, { reason: 'Abusive language' })).status, 200)
-    assert.equal((await remove(admin.token, { reason: 'Again' })).status, 400)
+    assert.equal((await remove(resident.token, { reason: 'abusive' })).status, 403)
+    assert.equal((await remove(admin.token, {})).status, 400)
+    assert.equal((await remove(admin.token, { reason: 'I just do not like it' })).status, 400)
+    // "Other" needs a message, so the resident still learns why
+    assert.equal((await remove(admin.token, { reason: 'other', message: '  ' })).status, 400)
+
+    const res = await remove(admin.token, { reason: 'abusive', message: 'Please keep it polite.' })
+    assert.equal(res.status, 200)
+    const entry = res.body.history.at(-1)
+    assert.equal(entry.type, 'removed')
+    assert.equal(entry.reason, 'abusive')
+    assert.equal(entry.note, 'Please keep it polite.')
+
+    assert.equal((await remove(admin.token, { reason: 'abusive' })).status, 400)
   })
 
-  it('takes it out of every list and count, and keeps it for admins', async () => {
+  it('shows the resident why, hides it from the agent, and keeps it out of live counts', async () => {
     const resident = await createUser('resident')
     const agent = await createUser('agent')
     const admin = await createUser('admin')
@@ -136,43 +169,44 @@ describe('removing a complaint', () => {
     await api()
       .patch(`/api/complaints/${rude._id}/remove`)
       .set(auth(admin.token))
-      .send({ reason: 'Abusive language' })
+      .send({ reason: 'abusive', message: 'Please keep it polite.' })
 
-    for (const who of [resident, agent, admin]) {
+    const caseNumbers = (res) => res.body.items.map((item) => item.caseNumber).sort()
+
+    // The resident still sees both, and can open the removed one to read why
+    const residentList = await api().get('/api/complaints').set(auth(resident.token))
+    assert.deepEqual(caseNumbers(residentList), [kept.caseNumber, rude.caseNumber].sort())
+    assert.equal(residentList.body.items.find((item) => item.caseNumber === rude.caseNumber).removed, true)
+    const residentOpen = await api().get('/api/complaints?status=open').set(auth(resident.token))
+    assert.deepEqual(caseNumbers(residentOpen), [kept.caseNumber])
+    const residentView = await api().get(`/api/complaints/${rude._id}`).set(auth(resident.token))
+    assert.equal(residentView.status, 200)
+    assert.equal(residentView.body.history.at(-1).reason, 'abusive')
+    assert.equal(residentView.body.history.at(-1).note, 'Please keep it polite.')
+
+    const residentStats = await api().get('/api/complaints/stats').set(auth(resident.token))
+    assert.equal(residentStats.body.byStatus.open, 1)
+    assert.equal(residentStats.body.removed, 1)
+    assert.equal(residentStats.body.total, 2)
+
+    // The agent and the admin's normal list only show live work
+    for (const who of [agent, admin]) {
       const list = await api().get('/api/complaints').set(auth(who.token))
-      assert.deepEqual(
-        list.body.items.map((item) => item.caseNumber),
-        [kept.caseNumber],
-      )
+      assert.deepEqual(caseNumbers(list), [kept.caseNumber])
       const stats = await api().get('/api/complaints/stats').set(auth(who.token))
       assert.equal(stats.body.total, 1)
     }
+    assert.equal((await api().get(`/api/complaints/${rude._id}`).set(auth(agent.token))).status, 410)
+    const agentTry = await api().get('/api/complaints?removed=true').set(auth(agent.token))
+    assert.deepEqual(caseNumbers(agentTry), [kept.caseNumber])
 
     const adminStats = await api().get('/api/complaints/stats').set(auth(admin.token))
     assert.equal(adminStats.body.removed, 1)
-
     const removedList = await api().get('/api/complaints?removed=true').set(auth(admin.token))
-    assert.deepEqual(
-      removedList.body.items.map((item) => item.caseNumber),
-      [rude.caseNumber],
-    )
-
-    // Only admins can open the removed list: for a resident the filter is ignored
-    const residentTry = await api().get('/api/complaints?removed=true').set(auth(resident.token))
-    assert.deepEqual(
-      residentTry.body.items.map((item) => item.caseNumber),
-      [kept.caseNumber],
-    )
+    assert.deepEqual(caseNumbers(removedList), [rude.caseNumber])
 
     const staff = await api().get('/api/users?role=agent').set(auth(admin.token))
     assert.equal(staff.body[0].activeComplaints, 1)
-
-    const adminView = await api().get(`/api/complaints/${rude._id}`).set(auth(admin.token))
-    assert.equal(adminView.status, 200)
-    assert.equal(adminView.body.removed, true)
-    const entry = adminView.body.history.at(-1)
-    assert.equal(entry.type, 'removed')
-    assert.equal(entry.note, 'Abusive language')
   })
 
   it('blocks every change once removed', async () => {
@@ -180,20 +214,40 @@ describe('removing a complaint', () => {
     const agent = await createUser('agent')
     const admin = await createUser('admin')
     const complaint = await fileComplaint(resident.token)
-    await api()
-      .patch(`/api/complaints/${complaint._id}/remove`)
-      .set(auth(admin.token))
-      .send({ reason: 'Not a real complaint' })
+    await api().patch(`/api/complaints/${complaint._id}/remove`).set(auth(admin.token)).send({ reason: 'not_real' })
     const url = `/api/complaints/${complaint._id}`
 
-    assert.equal((await api().get(url).set(auth(resident.token))).status, 410)
-    assert.equal((await api().patch(url).set(auth(resident.token)).send(validComplaint)).status, 410)
-    assert.equal((await api().post(`${url}/comments`).set(auth(resident.token)).send({ text: 'Why?' })).status, 410)
-
+    assert.equal((await api().patch(url).set(auth(resident.token)).send(validComplaint)).status, 400)
+    assert.equal((await api().post(`${url}/comments`).set(auth(resident.token)).send({ text: 'Why?' })).status, 400)
     assert.equal((await api().post(`${url}/comments`).set(auth(admin.token)).send({ text: 'Note' })).status, 400)
     const assign = await api().patch(`${url}/assign`).set(auth(admin.token)).send({ agentId: agent.user._id })
     assert.equal(assign.status, 400)
     const close = await api().patch(`${url}/status`).set(auth(admin.token)).send({ status: 'closed', note: 'Done' })
     assert.equal(close.status, 400)
+  })
+
+  it('can be restored by an admin, with the status it had', async () => {
+    const resident = await createUser('resident')
+    const agent = await createUser('agent')
+    const admin = await createUser('admin')
+    const complaint = await fileComplaint(resident.token)
+    const url = `/api/complaints/${complaint._id}`
+    await api().patch(`${url}/assign`).set(auth(admin.token)).send({ agentId: agent.user._id })
+    await api().patch(`${url}/status`).set(auth(agent.token)).send({ status: 'in_progress' })
+
+    assert.equal((await api().patch(`${url}/restore`).set(auth(admin.token))).status, 400)
+    await api().patch(`${url}/remove`).set(auth(admin.token)).send({ reason: 'duplicate' })
+    assert.equal((await api().patch(`${url}/restore`).set(auth(resident.token))).status, 403)
+
+    const restored = await api().patch(`${url}/restore`).set(auth(admin.token))
+    assert.equal(restored.status, 200)
+    assert.equal(restored.body.removed, false)
+    assert.equal(restored.body.status, 'in_progress')
+    assert.equal(restored.body.history.at(-1).type, 'restored')
+
+    const agentList = await api().get('/api/complaints').set(auth(agent.token))
+    assert.equal(agentList.body.total, 1)
+    const resolve = await api().patch(`${url}/status`).set(auth(agent.token)).send({ status: 'resolved', note: 'Fixed' })
+    assert.equal(resolve.status, 200)
   })
 })

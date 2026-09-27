@@ -43,6 +43,8 @@ function IndexLink({ to, current, status, label, count }) {
 
 // The drawer index: one entry per status with its count. A chip row on phones, a side list on desktop.
 export default function StatusIndex({ stats, isAdmin, activeStatus, unassignedActive, removedActive, linkFor }) {
+  // Admins always get the Removed entry. A resident only sees it once one of their complaints was removed.
+  const showRemoved = isAdmin || stats?.removed > 0
   const noFilter = !activeStatus && !unassignedActive && !removedActive
   const maxCategory = Math.max(1, ...(stats?.byCategory ?? []).map((row) => row.count))
 
@@ -74,7 +76,7 @@ export default function StatusIndex({ stats, isAdmin, activeStatus, unassignedAc
               count={stats?.unassigned}
             />
           )}
-          {isAdmin && (
+          {showRemoved && (
             <IndexLink
               to={linkFor({ status: null, unassigned: null, removed: 'true' })}
               current={removedActive}

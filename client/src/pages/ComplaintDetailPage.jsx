@@ -1,10 +1,12 @@
-import { ArrowLeft, Ban, FileQuestion, Pencil, Send } from 'lucide-react'
+import { ArrowLeft, Ban, FileQuestion, Pencil, Plus, Send, Undo2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { complaintsApi, usersApi } from '../api/services.js'
 import Alert from '../components/Alert.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import PriorityTag from '../components/PriorityTag.jsx'
+import RemovalNotice from '../components/RemovalNotice.jsx'
+import RemoveComplaintPanel from '../components/RemoveComplaintPanel.jsx'
 import { Skeleton } from '../components/Skeleton.jsx'
 import StatusSticker from '../components/StatusSticker.jsx'
 import Timeline from '../components/Timeline.jsx'
@@ -14,7 +16,6 @@ import { usePageTitle } from '../hooks/usePageTitle.js'
 import { formatDateTime, timeAgo } from '../utils/format.js'
 
 const COMMENT_MAX = 1000
-const REASON_MAX = 500
 
 // Which "hats" the user wears for this complaint, same idea as the server's actorRoles()
 function rolesFor(user, complaint) {
@@ -87,10 +88,6 @@ export default function ComplaintDetailPage() {
   const [commentError, setCommentError] = useState('')
   const [posting, setPosting] = useState(false)
 
-  // Remove form (admins)
-  const [removing, setRemoving] = useState(false)
-  const [reason, setReason] = useState('')
-  const [removeError, setRemoveError] = useState('')
 
   usePageTitle(complaint ? `${complaint.caseNumber} ${complaint.title}` : 'Complaint')
 
@@ -182,6 +179,8 @@ export default function ComplaintDetailPage() {
   // The resident can fix the details until work starts
   const canEdit = complaint.createdBy?._id === user._id && complaint.status === 'open' && !isRemoved
   const isClosed = complaint.status === 'closed'
+  // A removed complaint shows a "Removed" sticker instead of its status
+  const sticker = isRemoved ? 'removed' : complaint.status
 
   async function changeStatus(action) {
     if (action.needsNote && !note.trim()) {
@@ -236,21 +235,16 @@ export default function ComplaintDetailPage() {
     }
   }
 
-  async function removeComplaint() {
-    if (!reason.trim()) {
-      setRemoveError('Please write why you are removing it')
-      document.getElementById('remove-reason')?.focus()
-      return
-    }
+  async function restoreComplaint() {
     setBusy(true)
-    setRemoveError('')
+    setActionError('')
+    setActionDone('')
     try {
-      const updated = await complaintsApi.remove(complaint._id, reason.trim())
+      const updated = await complaintsApi.restore(complaint._id)
       setComplaint(updated)
-      setRemoving(false)
-      setReason('')
+      setActionDone(`Restored. It is back in the lists as ${STATUS_LABELS[updated.status]}.`)
     } catch (err) {
-      setRemoveError(err.message)
+      setActionError(err.message)
     } finally {
       setBusy(false)
     }
@@ -258,8 +252,11 @@ export default function ComplaintDetailPage() {
 
   // Errors are shown next to the comment by the Timeline
   async function removeComment(commentId) {
-    const updated = await complaintsApi.removeComment(complaint._id, commentId)
-    setComplaint(updated)
+    setComplaint(await complaintsApi.removeComment(complaint._id, commentId))
+  }
+
+  async function restoreComment(commentId) {
+    setComplaint(await complaintsApi.restoreComment(complaint._id, commentId))
   }
 
   async function postComment(event) {
@@ -303,10 +300,7 @@ export default function ComplaintDetailPage() {
       )}
       {removal && (
         <div className="case__notice">
-          <Alert tone="info">
-            <strong>Removed by {removal.by?.name ?? 'an admin'}</strong> on {formatDateTime(removal.createdAt)}. The
-            resident and the agent can no longer see this complaint. Reason: {removal.note}
-          </Alert>
+          <RemovalNotice entry={removal} isAdmin={isAdmin} />
         </div>
       )}
 
@@ -314,7 +308,7 @@ export default function ComplaintDetailPage() {
         <div className="case__number-row">
           <span className="case__number">{complaint.caseNumber}</span>
           {/* key makes React replay the stamp animation whenever the status changes */}
-          <StatusSticker key={complaint.status} status={complaint.status} size="lg" stamped />
+          <StatusSticker key={sticker} status={sticker} size="lg" stamped />
         </div>
         <h1 className="case__title">{complaint.title}</h1>
       </header>
@@ -358,7 +352,11 @@ export default function ComplaintDetailPage() {
             <h2 id="history-title" className="section-title">
               History and comments
             </h2>
-            <Timeline complaint={complaint} onRemoveComment={isAdmin && !isRemoved ? removeComment : undefined} />
+            <Timeline
+              complaint={complaint}
+              onRemoveComment={isAdmin && !isRemoved ? removeComment : undefined}
+              onRestoreComment={isAdmin && !isRemoved ? restoreComment : undefined}
+            />
 
             {isRemoved || isClosed ? (
               <p className="panel__text" style={{ marginTop: 24 }}>
@@ -416,10 +414,28 @@ export default function ComplaintDetailPage() {
             </div>
             {actionError && <Alert tone="error">{actionError}</Alert>}
 
-            {actions.length === 0 && (
-              <p className="panel__text">
-                {isRemoved ? 'This complaint was removed, so it cannot be changed.' : waitingText(user, complaint)}
-              </p>
+            {actions.length === 0 && !isRemoved && <p className="panel__text">{waitingText(user, complaint)}</p>}
+
+            {isRemoved && isAdmin && (
+              <div className="panel__actions">
+                <p className="panel__text">
+                  Restoring puts it back in every list as {STATUS_LABELS[complaint.status]}
+                  {complaint.assignedTo && <>, and {complaint.assignedTo.name} sees it again</>}.
+                </p>
+                <button type="button" className="btn btn--secondary btn--block" disabled={busy} onClick={restoreComplaint}>
+                  {busy ? <span className="spinner" aria-hidden="true" /> : <Undo2 size={16} aria-hidden="true" />}
+                  Restore complaint
+                </button>
+              </div>
+            )}
+            {isRemoved && !isAdmin && (
+              <div className="panel__actions">
+                <p className="panel__text">This complaint is closed for changes. You can file a new one any time.</p>
+                <Link to="/complaints/new" className="btn btn--secondary btn--block">
+                  <Plus size={16} aria-hidden="true" />
+                  File a new complaint
+                </Link>
+              </div>
             )}
 
             {canEdit && (
@@ -547,74 +563,7 @@ export default function ComplaintDetailPage() {
             </ul>
           </section>
 
-          {isAdmin && !isRemoved && (
-            <section className="panel" aria-labelledby="remove-title">
-              <h2 id="remove-title" className="panel__title">
-                Remove complaint
-              </h2>
-              {!removing ? (
-                <>
-                  <p className="panel__text">
-                    For rude or useless complaints. It disappears for the resident and the agent, and stays under
-                    Removed for your records.
-                  </p>
-                  <button
-                    type="button"
-                    className="btn btn--danger btn--block"
-                    onClick={() => {
-                      setRemoving(true)
-                      setRemoveError('')
-                    }}
-                  >
-                    <Ban size={16} aria-hidden="true" />
-                    Remove complaint
-                  </button>
-                </>
-              ) : (
-                <div className="note-box">
-                  <label htmlFor="remove-reason" className="field__label">
-                    Why are you removing it?
-                  </label>
-                  <textarea
-                    id="remove-reason"
-                    className="input"
-                    maxLength={REASON_MAX}
-                    placeholder="For example: abusive language, or not a real complaint"
-                    value={reason}
-                    onChange={(event) => {
-                      setReason(event.target.value)
-                      if (removeError) setRemoveError('')
-                    }}
-                    aria-invalid={removeError ? 'true' : undefined}
-                    aria-describedby={removeError ? 'remove-error' : undefined}
-                    autoFocus
-                  />
-                  {removeError && (
-                    <p id="remove-error" className="field__error">
-                      {removeError}
-                    </p>
-                  )}
-                  <div className="note-box__buttons">
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      disabled={busy}
-                      onClick={() => {
-                        setRemoving(false)
-                        setRemoveError('')
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button type="button" className="btn btn--danger" disabled={busy} onClick={removeComplaint}>
-                      {busy && <span className="spinner" aria-hidden="true" />}
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
+          {isAdmin && !isRemoved && <RemoveComplaintPanel complaint={complaint} onRemoved={setComplaint} />}
         </aside>
       </div>
     </>

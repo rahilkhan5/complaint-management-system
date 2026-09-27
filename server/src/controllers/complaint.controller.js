@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { CATEGORIES, PRIORITIES, STATUSES, TRANSITIONS } from '../constants.js'
+import { CATEGORIES, PRIORITIES, REMOVAL_REASONS, STATUSES, TRANSITIONS } from '../constants.js'
 import Complaint from '../models/Complaint.js'
 import User from '../models/User.js'
 import { httpError } from '../utils/httpError.js'
@@ -9,15 +9,15 @@ const DAY = 24 * 60 * 60 * 1000
 // The fields a resident may change while the complaint is still open
 const EDITABLE_FIELDS = ['title', 'description', 'category', 'priority', 'location']
 
-// Complaints an admin removed stay in the database but drop out of every list and count.
+// Complaints an admin removed stay in the database but are not live work any more, so counts leave them out.
 // $ne: true also matches older complaints that were saved before the field existed.
 const NOT_REMOVED = { removed: { $ne: true } }
 
 // Residents only see what they filed, agents only what is assigned to them, admins see everything
 function scopeFor(user) {
-  if (user.role === 'resident') return { createdBy: user._id, ...NOT_REMOVED }
-  if (user.role === 'agent') return { assignedTo: user._id, ...NOT_REMOVED }
-  return { ...NOT_REMOVED }
+  if (user.role === 'resident') return { createdBy: user._id }
+  if (user.role === 'agent') return { assignedTo: user._id }
+  return {}
 }
 
 // Compares two ids whether they are plain ObjectIds or populated documents
@@ -55,8 +55,9 @@ async function findVisibleComplaint(user, id) {
   const complaint = await findComplaintOr404(id)
   // 404 instead of 403 so users cannot find out which complaint numbers exist
   if (!canView(user, complaint)) throw httpError(404, 'Complaint not found')
-  // The resident and the agent already know this complaint exists, so they get a clear answer instead of 404
-  if (complaint.removed && user.role !== 'admin') throw httpError(410, 'This complaint was removed by the office')
+  // The resident may still read a removed complaint to see why. The agent already knows it exists,
+  // so a clear "removed" answer is kinder than 404.
+  if (complaint.removed && user.role === 'agent') throw httpError(410, 'This complaint was removed by the office')
   return complaint
 }
 
@@ -115,9 +116,17 @@ export async function listComplaints(req, res) {
   const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20))
 
   const filter = scopeFor(req.user)
-  // Only admins can open the list of removed complaints
-  if (removed === 'true' && req.user.role === 'admin') filter.removed = true
-  if (status && STATUSES.includes(status)) filter.status = status
+  if (removed === 'true' && req.user.role !== 'agent') {
+    filter.removed = true
+  } else if (req.user.role !== 'resident') {
+    // Staff lists only show live work. Residents also see their own removed complaints, marked as removed.
+    Object.assign(filter, NOT_REMOVED)
+  }
+  if (status && STATUSES.includes(status)) {
+    filter.status = status
+    // A removed complaint is not waiting for anything, so status filters leave it out
+    filter.removed ??= { $ne: true }
+  }
   if (category && CATEGORIES.includes(category)) filter.category = category
   if (priority && PRIORITIES.includes(priority)) filter.priority = priority
   if (unassigned === 'true' && req.user.role === 'admin') {
@@ -146,7 +155,8 @@ export async function listComplaints(req, res) {
 
 // GET /api/complaints/stats
 export async function getStats(req, res) {
-  const scope = scopeFor(req.user)
+  const owned = scopeFor(req.user)
+  const scope = { ...owned, ...NOT_REMOVED }
   const now = Date.now()
   const weekAgo = new Date(now - 7 * DAY)
   const twoWeeksAgo = new Date(now - 14 * DAY)
@@ -173,18 +183,22 @@ export async function getStats(req, res) {
   }
 
   if (req.user.role === 'admin') {
-    const [unassigned, byCategory, removed] = await Promise.all([
+    const [unassigned, byCategory] = await Promise.all([
       Complaint.countDocuments({ ...NOT_REMOVED, assignedTo: null, status: { $in: ['open', 'in_progress'] } }),
       Complaint.aggregate([
         { $match: { ...NOT_REMOVED, status: { $in: ['open', 'in_progress'] } } },
         { $group: { _id: '$category', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
-      Complaint.countDocuments({ removed: true }),
     ])
     stats.unassigned = unassigned
-    stats.removed = removed
     stats.byCategory = byCategory.map((row) => ({ category: row._id, count: row.count }))
+  }
+
+  if (req.user.role !== 'agent') {
+    stats.removed = await Complaint.countDocuments({ ...owned, removed: true })
+    // "All" matches the All list: a resident's list also shows their removed complaints
+    if (req.user.role === 'resident') stats.total += stats.removed
   }
 
   res.json(stats)
@@ -220,6 +234,7 @@ export async function updateComplaint(req, res) {
   const input = req.body ?? {}
   const complaint = await findVisibleComplaint(req.user, req.params.id)
   if (!sameId(complaint.createdBy, req.user)) throw httpError(404, 'Complaint not found')
+  assertNotRemoved(complaint)
   if (complaint.status !== 'open') {
     throw httpError(400, 'Work on this complaint has started, so it can no longer be edited. Please add a comment instead.')
   }
@@ -243,17 +258,34 @@ export async function updateComplaint(req, res) {
 }
 
 // PATCH /api/complaints/:id/remove  (admins)
+// body: { reason: one of REMOVAL_REASONS, message: optional words for the resident }
 export async function removeComplaint(req, res) {
-  const reason = req.body?.reason?.trim()
+  const reason = req.body?.reason
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : ''
   const complaint = await findComplaintOr404(req.params.id)
   if (complaint.removed) throw httpError(400, 'This complaint was already removed')
-  if (!reason) throw httpError(400, 'Please write why this complaint is being removed')
+  if (!Object.hasOwn(REMOVAL_REASONS, reason)) throw httpError(400, 'Please choose why this complaint is being removed')
+  if (reason === 'other' && !message) throw httpError(400, 'Please write a message that tells the resident why')
 
   complaint.removed = true
   complaint.removedAt = new Date()
-  complaint.history.push({ type: 'removed', note: reason, by: req.user._id })
+  complaint.history.push({ type: 'removed', reason, note: message || undefined, by: req.user._id })
 
   await saveChecked(complaint)
+  res.json(await toResponse(complaint, req.user))
+}
+
+// PATCH /api/complaints/:id/restore  (admins)
+export async function restoreComplaint(req, res) {
+  const complaint = await findComplaintOr404(req.params.id)
+  if (!complaint.removed) throw httpError(400, 'This complaint is not removed')
+
+  // It comes back with the status it had, and the history keeps both steps
+  complaint.removed = false
+  complaint.removedAt = undefined
+  complaint.history.push({ type: 'restored', by: req.user._id })
+
+  await complaint.save()
   res.json(await toResponse(complaint, req.user))
 }
 
@@ -340,6 +372,21 @@ export async function removeComment(req, res) {
   comment.removed = true
   comment.removedBy = req.user._id
   comment.removedAt = new Date()
+
+  await complaint.save()
+  res.json(await toResponse(complaint, req.user))
+}
+
+// PATCH /api/complaints/:id/comments/:commentId/restore  (admins)
+export async function restoreComment(req, res) {
+  const complaint = await findComplaintOr404(req.params.id)
+  const comment = mongoose.isValidObjectId(req.params.commentId) ? complaint.comments.id(req.params.commentId) : null
+  if (!comment) throw httpError(404, 'Comment not found')
+  if (!comment.removed) throw httpError(400, 'This comment is not removed')
+
+  comment.removed = false
+  comment.removedBy = undefined
+  comment.removedAt = undefined
 
   await complaint.save()
   res.json(await toResponse(complaint, req.user))

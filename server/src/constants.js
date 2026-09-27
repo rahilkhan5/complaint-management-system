@@ -17,6 +17,15 @@ export const PRIORITIES = ['low', 'medium', 'high']
 
 export const STATUSES = ['open', 'in_progress', 'resolved', 'closed']
 
+// Why an admin removed a complaint. The resident reads the label, so keep it polite.
+export const REMOVAL_REASONS = {
+  abusive: 'Abusive language',
+  incomplete: 'Incomplete information',
+  duplicate: 'Duplicate complaint',
+  not_real: 'Not a real complaint',
+  other: 'Other',
+}
+
 // Which status can move to which, and who is allowed to make that move.
 // "owner" means the resident who filed the complaint.
 // "assignee" means the agent the complaint is assigned to.

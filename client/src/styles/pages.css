@@ -718,7 +718,7 @@ fieldset.field legend {
   animation: reveal var(--duration-base) var(--ease-out);
 }
 
-.note-box .input {
+.note-box textarea.input {
   min-height: 96px;
 }
 

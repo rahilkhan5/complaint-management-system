@@ -15,12 +15,14 @@ export const complaintsApi = {
   get: (id) => apiRequest(`/complaints/${id}`),
   create: (data) => apiRequest('/complaints', { method: 'POST', body: data }),
   update: (id, data) => apiRequest(`/complaints/${id}`, { method: 'PATCH', body: data }),
-  remove: (id, reason) => apiRequest(`/complaints/${id}/remove`, { method: 'PATCH', body: { reason } }),
+  remove: (id, reason, message) => apiRequest(`/complaints/${id}/remove`, { method: 'PATCH', body: { reason, message } }),
+  restore: (id) => apiRequest(`/complaints/${id}/restore`, { method: 'PATCH' }),
   updateStatus: (id, status, note) =>
     apiRequest(`/complaints/${id}/status`, { method: 'PATCH', body: { status, note } }),
   assign: (id, agentId) => apiRequest(`/complaints/${id}/assign`, { method: 'PATCH', body: { agentId } }),
   comment: (id, text) => apiRequest(`/complaints/${id}/comments`, { method: 'POST', body: { text } }),
   removeComment: (id, commentId) => apiRequest(`/complaints/${id}/comments/${commentId}/remove`, { method: 'PATCH' }),
+  restoreComment: (id, commentId) => apiRequest(`/complaints/${id}/comments/${commentId}/restore`, { method: 'PATCH' }),
 }
 
 export const usersApi = {

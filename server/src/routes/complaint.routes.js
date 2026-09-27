@@ -8,6 +8,8 @@ import {
   listComplaints,
   removeComment,
   removeComplaint,
+  restoreComment,
+  restoreComplaint,
   updateComplaint,
   updateStatus,
 } from '../controllers/complaint.controller.js'
@@ -26,7 +28,9 @@ router.patch('/:id', authorize('resident'), updateComplaint)
 router.patch('/:id/status', updateStatus)
 router.patch('/:id/assign', authorize('admin'), assignComplaint)
 router.patch('/:id/remove', authorize('admin'), removeComplaint)
+router.patch('/:id/restore', authorize('admin'), restoreComplaint)
 router.post('/:id/comments', addComment)
 router.patch('/:id/comments/:commentId/remove', authorize('admin'), removeComment)
+router.patch('/:id/comments/:commentId/restore', authorize('admin'), restoreComment)
 
 export default router

@@ -23,7 +23,7 @@ export default function FileList({ complaints, role }) {
       </div>
       <ul className="file-list">
         {complaints.map((complaint) => (
-          <li key={complaint._id} className="file" data-status={complaint.status}>
+          <li key={complaint._id} className="file" data-status={complaint.removed ? 'removed' : complaint.status}>
             <Link to={`/complaints/${complaint._id}`} className="file__link">
               <span className="file__tab">
                 <span className="file__tab-dot" aria-hidden="true" />
@@ -41,7 +41,7 @@ export default function FileList({ complaints, role }) {
                 <div className="file__cell file__cell--category">{complaint.category}</div>
                 <div className="file__foot">
                   <div className="file__cell">
-                    <StatusSticker status={complaint.status} />
+                    <StatusSticker status={complaint.removed ? 'removed' : complaint.status} />
                   </div>
                   <div className="file__cell">
                     <span className="file__when">{formatDate(complaint.createdAt)}</span>

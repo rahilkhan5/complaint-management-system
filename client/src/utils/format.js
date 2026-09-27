@@ -1,3 +1,5 @@
+import { REMOVAL_REASONS } from '../constants.js'
+
 const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 const dateTimeFormat = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
@@ -25,4 +27,11 @@ export function timeAgo(value) {
   const days = Math.round(hours / 24)
   if (days < 7) return `${days} ${days === 1 ? 'day' : 'days'} ago`
   return formatDate(value)
+}
+
+// Reason label and message of a "removed" history entry.
+// Entries saved before the reason list existed only have a note, and that note was the reason.
+export function describeRemoval(entry) {
+  if (!entry.reason) return { label: entry.note ?? 'No reason given', message: '' }
+  return { label: REMOVAL_REASONS[entry.reason] ?? entry.reason, message: entry.note ?? '' }
 }
