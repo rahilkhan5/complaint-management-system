@@ -87,7 +87,7 @@ The side panel shows each weekly number next to last week's, like "7, 4 more tha
 
 ## Tests
 
-`server/test/` has 36 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
+`server/test/` has 43 tests using Node's built in test runner and Supertest. `mongodb-memory-server` starts a throwaway MongoDB for the tests, so they never touch real data. Run them with `npm test`.
 
 ## Questions I expect in an interview
 
@@ -106,5 +106,11 @@ The browser check is for a fast, friendly experience. The server check is the re
 **Why hide complaints and comments instead of deleting them?**
 A complaint system needs a record. If a resident writes something abusive and later says "I never wrote that", the admin can still show it. Deleting would also leave gaps in the case numbers with no explanation.
 
+**How is the live demo hosted without a paid server?**
+Netlify serves the React build as static files and runs the Express API as a Netlify Function through `serverless-http`. A function starts only when a request comes in, so it costs nothing while nobody uses it. The database is a free MongoDB Atlas cluster. Because the app and the API share one address, the browser never needs CORS.
+
+**How does the demo stay clean if visitors change things?**
+With `DEMO_MODE=true` the demo data reloads when the last reload is more than 6 hours old. Netlify can start several copies of the function at the same moment, so each copy tries one atomic `updateOne` with `upsert` that only matches a stale record. For a fresh record MongoDB refuses the upsert with a duplicate key error, so exactly one copy does the reload.
+
 **What would you improve?**
-Photo uploads, email or SMS notifications, rate limiting on login, and a live deployment.
+Photo uploads, email or SMS notifications, and rate limiting on login.

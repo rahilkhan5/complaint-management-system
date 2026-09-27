@@ -142,6 +142,19 @@ Put your Atlas connection string in `MONGO_URI` inside `server/.env`, then start
 | `MONGO_URI` | MongoDB connection string | `mongodb://127.0.0.1:27017/complaint-management` |
 | `JWT_SECRET` | Secret used to sign login tokens | a long random string |
 | `JWT_EXPIRES_IN` | How long a login lasts | `7d` |
+| `DEMO_MODE` | `true` on the live demo: reloads the demo data every 6 hours and locks the demo accounts | `false` |
+
+## Live demo hosting
+
+The live demo runs on Netlify's free plan, with the database on MongoDB Atlas's free plan.
+
+- Netlify builds the React app and serves it as static files.
+- The Express API runs as a Netlify Function (`server/functions/api.js`, using `serverless-http`). Netlify sends every `/api/...` request to it, so the app and the API share one address and need no CORS setup.
+- The only setting on Netlify is `MONGO_URI`. On the demo, the login secret is derived from it when `JWT_SECRET` is not set.
+- The demo data reloads when the last reload is more than 6 hours old. Netlify runs several copies of the function at once, so a single atomic MongoDB update decides which copy does the reload.
+- Demo accounts cannot change their password or be turned off, so everyone can keep using them.
+
+`netlify.toml` holds the build command and the redirects.
 
 ## Scripts
 
@@ -191,7 +204,7 @@ All routes start with `/api`. Routes marked with a lock need a `Bearer` token.
 npm test
 ```
 
-36 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue, staff management, updating your own account and password, editing a complaint, and removing and restoring comments and complaints. Each test run uses its own in-memory MongoDB, so it never touches your data.
+43 API tests cover sign up and login, who can see which complaint, the full status flow, reopening, blocked status jumps, comments, stats, search, the "needs an agent" queue, staff management, updating your own account and password, editing a complaint, removing and restoring comments and complaints, the demo reset, and the Netlify function. Each test run uses its own in-memory MongoDB, so it never touches your data.
 
 ## Folder structure
 
@@ -208,6 +221,7 @@ complaint-management-system/
 │       ├── constants.js       labels and the status rules for the UI
 │       └── App.jsx            routes
 ├── server/                    Express API
+│   ├── functions/             Netlify Function that runs the API on the live demo
 │   ├── scripts/               local database and demo data
 │   ├── src/
 │   │   ├── config/            database connection
@@ -218,14 +232,15 @@ complaint-management-system/
 │   │   ├── constants.js       roles, categories and status rules
 │   │   └── app.js             Express setup
 │   └── test/                  API tests
-└── docs/                      product notes, design system, walkthrough and screenshots
+├── docs/                      product notes, design system, walkthrough and screenshots
+└── netlify.toml               how Netlify builds and serves the live demo
 ```
 
 ## What I would add next
 
 - Photo upload on complaints
 - Email or SMS when the status changes
-- Live deployment (React on Vercel, API on Render, database on MongoDB Atlas)
+- Rate limiting on login
 
 ## Author
 

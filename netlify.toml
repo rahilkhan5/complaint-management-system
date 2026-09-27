@@ -1,0 +1,25 @@
+# Netlify hosts the live demo: the React app as static files, and the Express API as a function.
+[build]
+  command = "npm ci --prefix client && npm run build --prefix client && npm ci --omit=dev --prefix server"
+  publish = "client/dist"
+  functions = "server/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  node_bundler = "esbuild"
+  # Shipped as normal packages instead of bundled: the MongoDB driver loads optional parts at runtime
+  external_node_modules = ["mongoose", "mongodb"]
+
+# The API: /api/auth/login runs the "api" function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# Every other address opens the React app, which picks the page itself
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

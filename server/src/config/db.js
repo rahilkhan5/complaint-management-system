@@ -5,7 +5,7 @@ const RETRY_DELAY_MS = 3000
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export async function connectDB() {
+export async function connectDB({ attempts = MAX_ATTEMPTS } = {}) {
   const uri = process.env.MONGO_URI
 
   if (!uri) {
@@ -14,15 +14,15 @@ export async function connectDB() {
   }
 
   // Retry a few times: in development the local database may still be starting up
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       // Fail after 5 seconds instead of the default 30 when MongoDB is unreachable
       await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 })
       console.log(`MongoDB connected: ${mongoose.connection.host}`)
       return
     } catch (error) {
-      console.error(`MongoDB connection failed (attempt ${attempt}/${MAX_ATTEMPTS}): ${error.message}`)
-      if (attempt < MAX_ATTEMPTS) await wait(RETRY_DELAY_MS)
+      console.error(`MongoDB connection failed (attempt ${attempt}/${attempts}): ${error.message}`)
+      if (attempt < attempts) await wait(RETRY_DELAY_MS)
     }
   }
 
